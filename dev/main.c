@@ -62,9 +62,9 @@ int get_diff_timespec(struct timespec start, struct timespec end) {
 
     struct timespec res = time_diff_timespec(start, end);
 
-    diff = (int)ceil(res.tv_sec * 1e3 + res.tv_nsec / 1e6);
+    diff = (int) ceil(res.tv_sec * 1e3 + res.tv_nsec / 1e6);
 
-    return diff;
+    return diff == 0 ? 1 : diff; //getrusage returns 0 if time is very small
 }
 
 int get_diff_timeval(struct timeval start, struct timeval end) {
@@ -73,9 +73,9 @@ int get_diff_timeval(struct timeval start, struct timeval end) {
 
     struct timeval res = time_diff_timeval(start, end);
 
-    diff = (int)ceil(res.tv_sec * 1e3 + res.tv_usec / 1e3);
+    diff = (int) ceil(res.tv_sec * 1e3 + res.tv_usec / 1e3);
 
-    return diff;
+    return diff == 0 ? 1 : diff; //getrusage returns 0 if time is very small
 }
 
 int getbytes(int num) {
@@ -84,8 +84,22 @@ int getbytes(int num) {
 
 }
 
+struct CreateFilesResult {
+    int status; /*
+                0 - Successful
+                5 - Compilation error
+                6 - Server error 
+                */
+    char *description;
+};
 
-int create_files(int submission_id, char *code, char *language) {
+
+struct CreateFilesResult *create_files(int submission_id, char *code, char *language) {
+
+    struct CreateFilesResult *result = malloc(sizeof(struct CreateFilesResult));
+
+    result->status = 6; //define for server error
+    result->description = "";
 
     const int path_length = 14 + getbytes(submission_id);
     char path[path_length]; 
@@ -96,7 +110,7 @@ int create_files(int submission_id, char *code, char *language) {
     if (status != 0) { //error
 
         if(DEBUG) printf("failed to create a dir\n");
-        return 1;
+        return result;
 
     } 
 
@@ -112,7 +126,7 @@ int create_files(int submission_id, char *code, char *language) {
         if (file_code == NULL) {
 
             if(DEBUG) printf("file_code = NULL\n");
-            return 1;
+            return result;
 
         }
 
@@ -129,7 +143,7 @@ int create_files(int submission_id, char *code, char *language) {
         if (file_code == NULL) {
 
             if(DEBUG) printf("file_code = NULL\n");
-            return 1;
+            return result;
 
         }
 
@@ -139,20 +153,28 @@ int create_files(int submission_id, char *code, char *language) {
         char compile_command[26 +  2 * code_path_length]; //g++-11 -static -s main.cpp -o main len : 23 (26 including -lm) +  2 * code_path_length
         sprintf(compile_command, cpp ? "g++-11 -static -s %s -o %s/%d" : "gcc-11 -static -s %s -lm -o %s/%d", code_path, path, submission_id); 
         int status = system(compile_command); 
-        if (status == 1) { 
-            if (DEBUG) printf("failed to compile (cpp)\n"); //compilling error
+        if (status == 1) {  //compilation error
+
+            if (DEBUG) printf("failed to compile (cpp)\n"); 
+            result->status = 5;
+
+            //need to transmit stderr (result->description)
         }
 
     } else {
 
         if (DEBUG) printf("unknown language\n");
-        return 1;
+        return result;
 
     }
 
+    result->status = 0;
+
+    return result;
 }
 
 int delete_files(int submission_id) {
+    
     const int path_length = 14 + getbytes(submission_id);
 
     char dir_path[path_length];
@@ -175,37 +197,35 @@ int delete_files(int submission_id) {
     }
 }
 
-struct Result
+struct TestResult
 {
     int status; /* 0 - Correct answer
                    1 - Wrong answer
-                   2 - Compilation error
-                   3 - Runtime error
-                   4 - Time limit
-                   5 - Memory limit
-                   6 - Internal error */      
+                   2 - Time limit
+                   3 - Memory limit
+                   4 - Runtime error
+                   5 - Compilation error
+                   6 - Server error */      
     int time; //ms
     int cpu_time;
     int memory;
-    char *output;
     char *description;
 };
 
-int execute(
+int test_exec(
     const char *file, 
     char **args, 
     const char *testpath_input,
     const char *testpath_output,
     const char *code_path,
-    struct Result *result) { 
+    struct TestResult *result) { 
 
-    /*define for error:*/
+    //define for error:
 
     result->status = 6;
     result->time = 0;
     result->cpu_time = 0;
     result->memory = 0;
-    result->output = "";
     result->description = "";
 
     int input_fd = open(testpath_input, O_RDONLY);
@@ -226,7 +246,8 @@ int execute(
         return 1;
 
     }
-
+    //int arr[1000000];
+    //memset(arr, 1000000, 1000000);
     pid_t pid = fork();
 
     if (pid == 0) {
@@ -257,7 +278,6 @@ int execute(
 
         getrusage(RUSAGE_CHILDREN, &usage1);
 
-        
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
         waitpid(pid, &status, 0);
         clock_gettime(CLOCK_MONOTONIC_RAW, &end);
@@ -268,7 +288,7 @@ int execute(
 
         // int cpu_time = usage2.ru_utime.tv_usec / 1000 - usage1.ru_utime.tv_usec / 1000;
         int cpu_time = get_diff_timeval(usage1.ru_utime, usage2.ru_utime);
-        int memory = usage2.ru_maxrss - usage1.ru_maxrss;
+        int memory = usage2.ru_maxrss;
 
         //space to check for error types!!!
 
@@ -285,7 +305,6 @@ int execute(
         result->time = 0;
         result->cpu_time = 0;
         result->memory = 0;
-        result->output = "";
         result->description = "";
         return 1; //error
         
@@ -293,14 +312,13 @@ int execute(
 
 }
 
-struct Result *check_test_case(int submission_id, int test_case_id, char *language, char *input, char *solution) {
+struct TestResult *check_test_case(int submission_id, int test_case_id, char *language, char *input, char *solution) {
 
-    struct Result *result = malloc(sizeof(struct Result));
+    struct TestResult *result = malloc(sizeof(struct TestResult));
     result->status = 6; // define for error
     result->time = 0; 
     result->cpu_time = 0;
     result->memory = 0;
-    result->output = "";
     result->description = "";
     //struct Result result = {6, 0, 0, 0, "", ""}; // define for error
 
@@ -347,7 +365,7 @@ struct Result *check_test_case(int submission_id, int test_case_id, char *langua
 
     file_output = fopen(testpath_output, "w");
 
-    if (file_solution == NULL) {
+    if (file_output == NULL) {
 
         if(DEBUG) printf("file_output = NULL\n");
         return result;
@@ -362,7 +380,7 @@ struct Result *check_test_case(int submission_id, int test_case_id, char *langua
         char *file = "/usr/bin/python3";
         char *args[] = {file, code_path, NULL};
 
-        int exec_status = execute(
+        int exec_status = test_exec(
             file, 
             args, 
             testpath_input, 
@@ -385,7 +403,7 @@ struct Result *check_test_case(int submission_id, int test_case_id, char *langua
         char *file = code_path;
         char *args[] = {file, NULL};
 
-        int exec_status = execute(
+        int exec_status = test_exec(
                     file, 
                     args, 
                     testpath_input, 
@@ -416,7 +434,7 @@ struct Result *check_test_case(int submission_id, int test_case_id, char *langua
     
     char *solution_read = fgets(solution_buffer, 1000000, file_solution);
     
-    int status = -1;
+    int status = -1; // checking 
 
     while (output_read != NULL && solution_read != NULL) {
 
@@ -468,21 +486,160 @@ struct Result *check_test_case(int submission_id, int test_case_id, char *langua
         }    
     }  
 
-    while (fgets(output_buffer, 1000000, file_output) != NULL) {
+    fclose(file_solution);      
+    pclose(file_output);
+
+    result->status = status;
+
+    return result;
+    
+}
+
+struct DebugResult {
+    int status; /* 0 - Successful
+                   2 - Time limit
+                   3 - Memory limit
+                   4 - Runtime error
+                   5 - Compilation error
+                   6 - server error */      
+    int time;
+    int cpu_time;
+    int memory;
+    char *output;
+    char *description;
+
+};
+/*int test_exec(
+    const char *file, 
+    char **args, 
+    const char *testpath_input,
+    const char *testpath_output,
+    const char *code_path,
+    struct TestResult *result)*/
+
+struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *language, char *input) {
+
+    struct DebugResult *result = malloc(sizeof(struct DebugResult));
+    struct TestResult *exec_result = malloc(sizeof(struct TestResult));
+
+    result->status = 6; // define for error
+    result->time = 0; 
+    result->cpu_time = 0;
+    result->memory = 0;
+    result->description = "";
+
+    char output[1000000] = "";
+
+    const int path_length = 14 + getbytes(debug_submission_id);
+    const int testpath_input_length = path_length + getbytes(debug_test_id) + 11;
+
+    char testpath_input[testpath_input_length]; //..._input.txt 
+    char testpath_output[testpath_input_length + 1]; //..._output.txt
+
+    sprintf(testpath_input, "checker_files/%d/%d_input.txt", debug_submission_id, debug_test_id);
+    sprintf(testpath_output, "checker_files/%d/%d_output.txt", debug_submission_id, debug_test_id);
+
+    FILE *file_output;
+    FILE *file_input;
+
+    file_input = fopen(testpath_input, "w");
+
+    if (file_input == NULL) {
+
+        if(DEBUG) printf("file_input = NULL\n");
+        return result;
+        
+    }
+
+    fprintf(file_input, "%s", input);
+    fclose(file_input);
+
+    file_output = fopen(testpath_output, "w");
+
+    if (file_output == NULL) {
+
+        if(DEBUG) printf("file_output = NULL\n");
+        return result;
+
+    }
+
+    if (strcmp(language, "Python 3 (3.10)") == 0) {
+
+        char code_path[path_length + getbytes(debug_submission_id) + 4]; // path_length + getbytes(debug_submission_id) + 4 (/.py)
+        sprintf(code_path, "checker_files/%d/%d.py", debug_submission_id, debug_submission_id);
+
+        char *file = "/usr/bin/python3";
+        char *args[] = {file, code_path, NULL};
+
+        int exec_status = test_exec(
+            file, 
+            args, 
+            testpath_input, 
+            testpath_output, 
+            code_path, 
+            exec_result);
+
+        if (exec_status == 1) {
+            if (DEBUG) printf("failed in child process");
+            return result;
+        }
+        
+    } else if (strcmp(language, "C++ 17 (g++ 11.2)") == 0 || strcmp(language, "C 17 (gcc 11.2)") == 0) {
+
+        int code_path_length = path_length + getbytes(debug_submission_id) + 1; // path_length + getbytes(debug_submission_id) + 1 :(/) :)))))))))))))))))))))))))))))))))
+
+        char code_path[code_path_length]; 
+        sprintf(code_path, "checker_files/%d/%d", debug_submission_id, debug_submission_id);
+
+        char *file = code_path;
+        char *args[] = {file, NULL};
+
+        int exec_status = test_exec(
+                    file, 
+                    args, 
+                    testpath_input, 
+                    testpath_output, 
+                    code_path, 
+                    exec_result);
+
+        if (exec_status == 1) {
+
+            if (DEBUG) printf("failed in child process");
+            return result;
+
+        }
+
+    } else {
+
+        if (DEBUG) printf("unknown language");
+        return result;
+
+    }
+
+    fclose(file_output);
+
+    result->status = 0; //successful
+    result->time = exec_result->time;
+    result->cpu_time = exec_result->cpu_time;
+    result->memory = exec_result->memory;
+
+    file_output = fopen(testpath_output, "r");
+
+    char output_buffer[1000000];
+
+    while(fgets(output_buffer, 1000000, file_output)) {
 
         strcat(output, output_buffer);
         strcat(output, "\n");
 
     }
 
-    fclose(file_solution);      
-    pclose(file_output);
-
-    result->status = status;
+    strcat(output, "\0");
+    
     result->output = output;
 
     return result;
-    
+
 }
       
 int main() {
@@ -491,13 +648,14 @@ int main() {
 
     //create_files(12312365, "num = int(input())\nprint(f\"{num // 10} {num % 10}\")\n", "Python 3 (3.10)");
     create_files(12312365, "#include <iostream>\n\nusing namespace std;\n\nint main() {\n    int a;\n    cin >> a;\n    cout << a * a;\n    return 0;\n}", "C++ 17 (g++ 11.2)");
-    struct Result *result = check_test_case(12312365, 123123, "C++ 17 (g++ 11.2)", "99", "9 9");
+    struct TestResult *result = check_test_case(12312365, 123123, "C++ 17 (g++ 11.2)", "99", "9801");
+    //struct DebugResult *result = debug(12312365, 12, "C++ 17 (g++ 11.2)", "12");
     delete_files(12312365);
 
+
     printf(
-        "status: %d\noutput: %stime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
+        "status: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
         result->status, 
-        result->output, 
         result->time, 
         result->cpu_time, 
         result->memory);
