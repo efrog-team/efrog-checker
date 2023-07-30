@@ -102,7 +102,7 @@ int create_files(int submission_id, char *code, char *language) {
 
     FILE  *file_code;
     
-    if (strcmp(language, "Python 3 (3.10)") == 0) {
+    if (strcmp(language, "Python 3 (3.10)") == 0 ) {
 
         char code_path[path_length + getbytes(submission_id) + 4]; // path_length + getbytes(submission_id) + 4 (/.py)
         sprintf(code_path, "%s/%d.py", path, submission_id);
