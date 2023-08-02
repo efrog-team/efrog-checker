@@ -116,10 +116,12 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
     FILE  *file_code;
     
-    if (strcmp(language, "Python 3 (3.10)") == 0 ) {
+    if (strcmp(language, "Python 3 (3.10)") == 0 || strcmp(language, "Node.js (20.x)") == 0) {  
+
+        bool py = strcmp(language, "Python 3 (3.10)") == 0;
 
         char code_path[path_length + getbytes(submission_id) + 4]; // path_length + getbytes(submission_id) + 4 (/.py)
-        sprintf(code_path, "%s/%d.py", path, submission_id);
+        sprintf(code_path, py ? "%s/%d.py" : "%s/%d.js", path, submission_id);
 
         file_code = fopen(code_path, "w");
 
@@ -134,10 +136,14 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
         fclose(file_code);
 
     } else if (strcmp(language, "C++ 17 (g++ 11.2)") == 0 || strcmp(language, "C 17 (gcc 11.2)") == 0) { //cpp and c
+
         bool cpp = strcmp(language, "C++ 17 (g++ 11.2)") == 0; //c++
+
         int code_path_length = path_length + getbytes(submission_id) + 5;
+
         char code_path[code_path_length]; 
         sprintf(code_path, cpp ? "%s/%d.cpp" : "%s/%d.c", path, submission_id);
+
         file_code = fopen(code_path, "w");
 
         if (file_code == NULL) {
@@ -150,15 +156,34 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
         fprintf(file_code, "%s", code);
         fclose(file_code);
 
-        char compile_command[26 +  2 * code_path_length]; //g++-11 -static -s main.cpp -o main len : 23 (26 including -lm) +  2 * code_path_length
-        sprintf(compile_command, cpp ? "g++-11 -static -s %s -o %s/%d" : "gcc-11 -static -s %s -lm -o %s/%d", code_path, path, submission_id); 
-        int status = system(compile_command); 
-        if (status == 1) {  //compilation error
+        char compile_command[31 +  2 * code_path_length]; //g++-11 -static -s main.cpp -o main len : 23 (26 including -lm) +  2 * code_path_length + 5 ( 2>&1)
+        sprintf(compile_command, cpp ? "g++-11 -static -s %s 2>&1 -o %s/%d" : "gcc-11 -static -s %s 2>&1 -lm -o %s/%d", code_path, path, submission_id); 
 
-            if (DEBUG) printf("failed to compile (cpp)\n"); 
+        FILE *ferr = popen(compile_command, "r");
+
+        char cerror_buffer[1000];
+        char cerror[10000];
+
+        while (fgets(cerror_buffer, sizeof(cerror_buffer), ferr) != NULL) {
+
+            strcat(cerror, cerror_buffer);
+            strcat(cerror, "\n");
+
+        }
+
+        pclose(ferr);
+        strcat(cerror, "\0");
+
+        printf("cerror %s", cerror);
+
+        if (strlen(cerror) != 0) {
+
+            if (DEBUG) printf("failed to compile (C or C++)\n");
+
             result->status = 5;
+            result->description = cerror;
 
-            //need to transmit stderr (result->description)
+            return result;
         }
 
     } else {
@@ -272,23 +297,29 @@ int test_exec(
         close(input_fd);
         close(output_fd);
 
-        struct rusage usage1, usage2;
+        struct rusage usage;
         int status;
         struct timespec start, end;
 
-        getrusage(RUSAGE_CHILDREN, &usage1);
-
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-        waitpid(pid, &status, 0);
-        clock_gettime(CLOCK_MONOTONIC_RAW, &end);
 
-        getrusage(RUSAGE_CHILDREN, &usage2);
+        waitpid(pid, &status, 0);
+
+        getrusage(RUSAGE_CHILDREN, &usage);
+
+        clock_gettime(CLOCK_MONOTONIC_RAW, &end);
 
         int time = get_diff_timespec(start, end);
 
-        // int cpu_time = usage2.ru_utime.tv_usec / 1000 - usage1.ru_utime.tv_usec / 1000;
-        int cpu_time = get_diff_timeval(usage1.ru_utime, usage2.ru_utime);
-        int memory = usage2.ru_maxrss;
+        int cpu_time = (int)ceil(usage.ru_utime.tv_sec * 1000 + usage.ru_utime.tv_usec / 1000);
+
+        if (cpu_time == 0) {
+
+            cpu_time = (int)ceil(usage.ru_stime.tv_sec * 1000 + usage.ru_stime.tv_usec / 1000);
+
+        }
+
+        int memory = usage.ru_maxrss;
 
         //space to check for error types!!!
 
@@ -372,12 +403,16 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
 
     }
 
-    if (strcmp(language, "Python 3 (3.10)") == 0) {
+    fclose(file_output);
+
+    if (strcmp(language, "Python 3 (3.10)") == 0 || strcmp(language, "Node.js (20.x)") == 0) {
+
+        bool py = strcmp(language, "Python 3 (3.10)") == 0;
 
         char code_path[path_length + getbytes(submission_id) + 4]; // path_length + getbytes(submission_id) + 4 (/.py)
-        sprintf(code_path, "checker_files/%d/%d.py", submission_id, submission_id);
+        sprintf(code_path, py ? "checker_files/%d/%d.py" : "checker_files/%d/%d.js", submission_id, submission_id);
 
-        char *file = "/usr/bin/python3";
+        char *file = py ? "/usr/bin/python3" : "/usr/bin/node";
         char *args[] = {file, code_path, NULL};
 
         int exec_status = test_exec(
@@ -487,7 +522,7 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     }  
 
     fclose(file_solution);      
-    pclose(file_output);
+    fclose(file_output);
 
     result->status = status;
 
@@ -509,13 +544,7 @@ struct DebugResult {
     char *description;
 
 };
-/*int test_exec(
-    const char *file, 
-    char **args, 
-    const char *testpath_input,
-    const char *testpath_output,
-    const char *code_path,
-    struct TestResult *result)*/
+
 
 struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *language, char *input) {
 
@@ -563,12 +592,14 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 
     }
 
-    if (strcmp(language, "Python 3 (3.10)") == 0) {
+    if (strcmp(language, "Python 3 (3.10)") == 0 || strcmp(language, "Node.js (20.x)") == 0) {
+
+        bool py = strcmp(language, "Python 3 (3.10)") == 0;
 
         char code_path[path_length + getbytes(debug_submission_id) + 4]; // path_length + getbytes(debug_submission_id) + 4 (/.py)
-        sprintf(code_path, "checker_files/%d/%d.py", debug_submission_id, debug_submission_id);
+        sprintf(code_path, py ? "checker_files/%d/%d.py" : "checker_files/%d/%d.js", debug_submission_id, debug_submission_id);
 
-        char *file = "/usr/bin/python3";
+        char *file = py ? "/usr/bin/python3" : "/usr/bin/node";
         char *args[] = {file, code_path, NULL};
 
         int exec_status = test_exec(
@@ -646,19 +677,25 @@ int main() {
 
     DEBUG = 1;
 
-    //create_files(12312365, "num = int(input())\nprint(f\"{num // 10} {num % 10}\")\n", "Python 3 (3.10)");
-    create_files(12312365, "#include <iostream>\n\nusing namespace std;\n\nint main() {\n    int a;\n    cin >> a;\n    cout << a * a;\n    return 0;\n}", "C++ 17 (g++ 11.2)");
-    struct TestResult *result = check_test_case(12312365, 123123, "C++ 17 (g++ 11.2)", "99", "9801");
-    //struct DebugResult *result = debug(12312365, 12, "C++ 17 (g++ 11.2)", "12");
-    delete_files(12312365);
-
+    struct CreateFilesResult *cfr = create_files(12312365, "const Console = require(\"efrog\").Console;\nconst a = Number(Console.inputAll());\nConsole.alert(String(a ** 2));", "Node.js (20.x)");
+    //struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\n\nint main() {\n    int a;\n    cin >> a;\n    cout << a * a;\n    return 0;\n}", "C++ 17 (g++ 11.2)");
 
     printf(
-        "status: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
+    "CreateFilesResult:\nstatus: %d\ndescription: %s\n", 
+    cfr->status, 
+    cfr->description);
+    
+    //struct TestResult *result = check_test_case(12312365, 123123, "Node.js (20.x)", "99", "9801");
+    struct DebugResult *result = debug(12312365, 12, "Node.js (20.x)", "12");
+    //delete_files(12312365);
+
+    printf(
+        "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\noutput: %s\n", 
         result->status, 
         result->time, 
         result->cpu_time, 
-        result->memory);
+        result->memory),
+        result->output;
 
     return 0;
 
