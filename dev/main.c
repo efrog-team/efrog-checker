@@ -174,7 +174,6 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
         pclose(ferr);
         strcat(cerror, "\0");
 
-        printf("cerror %s", cerror);
 
         if (strlen(cerror) != 0) {
 
@@ -272,73 +271,82 @@ int test_exec(
 
     }
     //int arr[1000000];
-    //memset(arr, 1000000, 1000000);
-    pid_t pid = fork();
 
-    if (pid == 0) {
+    pid_t pid_main = fork();
 
-        /*-------------------------------child process-------------------------------*/
+    if (pid_main == 0) {
 
-        // freopen(testpath_input, "r", stdin);
-        // freopen(testpath_output, "w", stdout);
+        pid_t pid = fork();
 
-        dup2(input_fd, STDIN_FILENO);
-        dup2(output_fd, STDOUT_FILENO);
+        if (pid == 0) {
 
-        close(input_fd);
-        close(output_fd);
-                
-        execv(file, args);
+            /*-------------------------------child process-------------------------------*/
+            struct rusage test;
 
-    } else if (pid > 0) {
+            dup2(input_fd, STDIN_FILENO);
+            dup2(output_fd, STDOUT_FILENO);
 
-        /*-------------------------------parent process-------------------------------*/
 
-        close(input_fd);
-        close(output_fd);
-
-        struct rusage usage;
-        int status;
-        struct timespec start, end;
-
-        clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-
-        waitpid(pid, &status, 0);
-
-        getrusage(RUSAGE_CHILDREN, &usage);
-
-        clock_gettime(CLOCK_MONOTONIC_RAW, &end);
-
-        int time = get_diff_timespec(start, end);
-
-        int cpu_time = (int)ceil(usage.ru_utime.tv_sec * 1000 + usage.ru_utime.tv_usec / 1000);
-
-        if (cpu_time == 0) {
-
-            cpu_time = (int)ceil(usage.ru_stime.tv_sec * 1000 + usage.ru_stime.tv_usec / 1000);
-
-        }
-
-        int memory = usage.ru_maxrss;
-
-        //space to check for error types!!!
-
-        result->time = time;
-        result->cpu_time = cpu_time;
-        result->memory = memory;
-
-        return 0;
-
-    } else {
-
-        if (DEBUG) printf("failed to create child process");
-        result->status = 6;
-        result->time = 0;
-        result->cpu_time = 0;
-        result->memory = 0;
-        result->description = "";
-        return 1; //error
+            close(input_fd);
+            close(output_fd);
         
+            /*getrusage(RUSAGE_SELF, &test);
+            printf("%ld\n", test.ru_maxrss);*/
+
+            execv(file, args);
+
+        } else if (pid > 0) {
+
+            /*-------------------------------parent process-------------------------------*/
+
+            close(input_fd);
+            close(output_fd);
+
+            struct rusage usage;
+            int status;
+            struct timespec start, end;
+
+            clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+
+            waitpid(pid, &status, 0);
+
+            getrusage(RUSAGE_CHILDREN, &usage);
+
+            clock_gettime(CLOCK_MONOTONIC_RAW, &end);
+
+            int time = get_diff_timespec(start, end);
+
+            int cpu_time = (int)ceil(usage.ru_utime.tv_sec * 1000 + usage.ru_utime.tv_usec / 1000);
+
+            if (cpu_time == 0) {
+
+                cpu_time = (int)ceil(usage.ru_stime.tv_sec * 1000 + usage.ru_stime.tv_usec / 1000);
+
+            }
+
+            int memory = usage.ru_maxrss;
+
+            //space to check for error types!!!
+
+            result->time = time;
+            result->cpu_time = cpu_time;
+            result->memory = memory;
+
+            printf("memory: %d\n", memory);
+
+            return 0;
+
+        } else {
+
+            if (DEBUG) printf("failed to create child process");
+            result->status = 6;
+            result->time = 0;
+            result->cpu_time = 0;
+            result->memory = 0;
+            result->description = "";
+            return 1; //error
+            
+        }
     }
 
 }
@@ -668,7 +676,6 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     strcat(output, "\0");
     
     result->output = output;
-
     return result;
 
 }
@@ -677,25 +684,24 @@ int main() {
 
     DEBUG = 1;
 
-    struct CreateFilesResult *cfr = create_files(12312365, "const Console = require(\"efrog\").Console;\nconst a = Number(Console.inputAll());\nConsole.alert(String(a ** 2));", "Node.js (20.x)");
+    //struct CreateFilesResult *cfr = create_files(12312365, "print(int(input()) ** 2)", "Python 3 (3.10)");
     //struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\n\nint main() {\n    int a;\n    cin >> a;\n    cout << a * a;\n    return 0;\n}", "C++ 17 (g++ 11.2)");
-
-    printf(
-    "CreateFilesResult:\nstatus: %d\ndescription: %s\n", 
-    cfr->status, 
-    cfr->description);
-    
-    //struct TestResult *result = check_test_case(12312365, 123123, "Node.js (20.x)", "99", "9801");
-    struct DebugResult *result = debug(12312365, 12, "Node.js (20.x)", "12");
+    //struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\n}", "C 17 (gcc 11.2)");
+    /*printf(
+    "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
+    cfr->status,
+    cfr->description);*/
+    //struct TestResult *result = check_test_case(12312365, 12, "Python 3 (3.10)", "12", "144");
+    struct DebugResult *result = debug(12312365, 12, "C++ 17 (g++ 11.2)", "12");
     //delete_files(12312365);
 
-    printf(
-        "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\noutput: %s\n", 
+    /*printf(
+        "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\noutput: %s", 
         result->status, 
         result->time, 
         result->cpu_time, 
-        result->memory),
-        result->output;
+        result->memory,
+        result->output);*/
 
     return 0;
 
