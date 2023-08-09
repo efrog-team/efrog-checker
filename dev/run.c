@@ -78,8 +78,9 @@ int main(int argc, char **argv) {
 
             clock_gettime(CLOCK_MONOTONIC_RAW, &end);
 
-            if (!WIFEXITED(status)) {
 
+            if (!WIFEXITED(status)) {
+                
                 exit(6); //server error
 
             }

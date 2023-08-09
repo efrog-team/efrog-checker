@@ -321,7 +321,9 @@ int execute(
         int status;
         waitpid(pid, &status, 0);
 
-        if (status == 0) {
+        int wexitstatus = WEXITSTATUS(status);
+        
+        if (wexitstatus == 0) {
 
             int time, cpu_time, memory;
 
@@ -373,14 +375,14 @@ int execute(
 
             return 0;
         
-        } else if (status == 4) {
+        } else if (wexitstatus == 4) {
 
             result->status = 4;
             //result->description = "";
             return 1;
 
         } else {
-
+            printf("status : %d\n", status);
             result->status = 6;
             result->time = 0;
             result->cpu_time = 0;
@@ -589,6 +591,7 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
 }
 
 struct DebugResult {
+
     int status; /* 0 - Successful
                    2 - Time limit
                    3 - Memory limit
@@ -730,24 +733,23 @@ int main() {
 
     DEBUG = 1;
 
-    // struct CreateFilesResult *cfr = create_files(12312365, "print(int(input()) ** 2)", "Python 3 (3.10)");
+    struct CreateFilesResult *cfr = create_files(12312365, "print(int(input()) ** 2", "Python 3 (3.10)");
     // struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\n\nint main() {\n    int a;\n    cin >> a;\n    cout << a * a;\n    return 0;\n}", "C++ 17 (g++ 11.2)");
     //struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\n}", "C 17 (gcc 11.2)");
-    /*printf(
+    printf(
     "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
     cfr->status,
-    cfr->description);*/
-    //struct TestResult *result = check_test_case(12312365, 12, "Python 3 (3.10)", "12", "144");
+    cfr->description);
+    struct TestResult *result = check_test_case(12312365, 12, "Python 3 (3.10)", "12", "144");
     // struct DebugResult *result = debug(12312365, 12, "C++ 17 (g++ 11.2)", "12");
-    // delete_files(12312365);
+    //delete_files(12312365);
 
-    /*printf(
-        "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\noutput: %s", 
+    printf(
+        "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
         result->status, 
         result->time, 
         result->cpu_time, 
-        result->memory,
-        result->output);*/
+        result->memory);
 
     return 0;
 
