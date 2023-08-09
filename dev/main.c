@@ -237,20 +237,41 @@ struct TestResult
 };
 
 int test_exec(
-    const char *file, 
-    char **args, 
-    const char *testpath_input,
-    const char *testpath_output,
-    const char *code_path,
+    int submission_id,
+    int test_case_id,
+    char **args,
     struct TestResult *result) { 
 
     //define for error:
 
     result->status = 6;
-    result->time = 0;
+    result->time = 10;
     result->cpu_time = 0;
     result->memory = 0;
     result->description = "";
+
+    const int path_length = 14 + getbytes(submission_id);
+    const int testpath_length = path_length + getbytes(test_case_id);
+
+    char testpath_input[testpath_length + 10]; //..._input.txt
+    char testpath_output[testpath_length + 11]; //..._output.txt
+    char testpath_time[testpath_length + 9]; //..._time.txt
+    char testpath_cpu_time[testpath_length + 13]; //..._cpu_time.txt
+    char testpath_memory[testpath_length + 11]; //..._memory.txt
+
+    sprintf(testpath_input, "checker_files/%d/%d_input.txt", submission_id, test_case_id);
+    sprintf(testpath_output, "checker_files/%d/%d_output.txt", submission_id, test_case_id);
+    sprintf(testpath_time, "checker_files/%d/%d_time.txt", submission_id, test_case_id);
+    sprintf(testpath_cpu_time, "checker_files/%d/%d_cpu_time.txt", submission_id, test_case_id);
+    sprintf(testpath_memory, "checker_files/%d/%d_memory.txt", submission_id, test_case_id);
+
+    char testpath_time_env[2 * (testpath_length + 9) + 1];
+    char testpath_cpu_time_env[2 * (testpath_length + 13) + 1];
+    char testpath_memory_env[2 * (testpath_length + 11) + 1];
+
+    sprintf(testpath_time_env, "TESTPATH_TIME=%s", testpath_time);
+    sprintf(testpath_cpu_time_env, "TESTPATH_CPU_TIME=%s", testpath_cpu_time);
+    sprintf(testpath_memory_env, "TESTPATH_MEMORY=%s", testpath_memory);
 
     int input_fd = open(testpath_input, O_RDONLY);
 
@@ -270,84 +291,109 @@ int test_exec(
         return 1;
 
     }
-    //int arr[1000000];
 
-    pid_t pid_main = fork();
+    char *envp[] = {
+        testpath_time_env,
+        testpath_cpu_time_env,
+        testpath_memory_env,
+        NULL
+    };
 
-    if (pid_main == 0) {
+    pid_t pid = fork();
 
-        pid_t pid = fork();
+    if (pid == 0) {
 
-        if (pid == 0) {
+        dup2(input_fd, STDIN_FILENO);
+        dup2(output_fd, STDOUT_FILENO);
 
-            /*-------------------------------child process-------------------------------*/
-            struct rusage test;
+        close(input_fd);
+        close(output_fd);
 
-            dup2(input_fd, STDIN_FILENO);
-            dup2(output_fd, STDOUT_FILENO);
+        execve("run", args, envp);
 
+    } else if (pid > 0) {
 
-            close(input_fd);
-            close(output_fd);
+        close(input_fd);
+        close(output_fd);
         
-            /*getrusage(RUSAGE_SELF, &test);
-            printf("%ld\n", test.ru_maxrss);*/
+        int status;
+        waitpid(pid, &status, 0);
 
-            execv(file, args);
+        if (status == 0) {
 
-        } else if (pid > 0) {
+            int time, cpu_time, memory;
 
-            /*-------------------------------parent process-------------------------------*/
+            FILE *file_time;
+            FILE *file_cpu_time;
+            FILE *file_memory;
 
-            close(input_fd);
-            close(output_fd);
+            file_time = fopen(testpath_time, "r");
+            
+            if (file_time == NULL) {
 
-            struct rusage usage;
-            int status;
-            struct timespec start, end;
+                if(DEBUG) printf("file_time = NULL\n");
+                return 1;
+                
+            }
+            
+            fscanf(file_time, "%d", &time);
+            fclose(file_time);
+            
+            file_cpu_time = fopen(testpath_cpu_time, "r");
+            
+            if (file_cpu_time == NULL) {
 
-            clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+                if(DEBUG) printf("file_cpu_time = NULL\n");
+                return 1;
+                
+            }
+            
+            fscanf(file_cpu_time, "%d", &cpu_time);
+            fclose(file_cpu_time);
 
-            waitpid(pid, &status, 0);
+            file_memory = fopen(testpath_memory, "r");
 
-            getrusage(RUSAGE_CHILDREN, &usage);
+            if (file_memory == NULL) {
 
-            clock_gettime(CLOCK_MONOTONIC_RAW, &end);
-
-            int time = get_diff_timespec(start, end);
-
-            int cpu_time = (int)ceil(usage.ru_utime.tv_sec * 1000 + usage.ru_utime.tv_usec / 1000);
-
-            if (cpu_time == 0) {
-
-                cpu_time = (int)ceil(usage.ru_stime.tv_sec * 1000 + usage.ru_stime.tv_usec / 1000);
-
+                if(DEBUG) printf("file_memory = NULL\n");
+                return 1;
+                
             }
 
-            int memory = usage.ru_maxrss;
+            fscanf(file_memory, "%d", &memory);
+            fclose(file_memory);
 
-            //space to check for error types!!!
-
+            result->status = 0;
             result->time = time;
             result->cpu_time = cpu_time;
             result->memory = memory;
-
-            printf("memory: %d\n", memory);
+            result->description = "";
 
             return 0;
-
+        
         } else {
 
-            if (DEBUG) printf("failed to create child process");
             result->status = 6;
             result->time = 0;
             result->cpu_time = 0;
             result->memory = 0;
             result->description = "";
             return 1; //error
-            
+
         }
+
+    } else {
+
+        if (DEBUG) printf("failed to create the first child process");
+        result->status = 6;
+        result->time = 0;
+        result->cpu_time = 0;
+        result->memory = 0;
+        result->description = "";
+        return 1; //error
+        
     }
+
 
 }
 
@@ -424,11 +470,9 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
         char *args[] = {file, code_path, NULL};
 
         int exec_status = test_exec(
-            file, 
-            args, 
-            testpath_input, 
-            testpath_output, 
-            code_path, 
+            submission_id,
+            test_case_id,
+            args,
             result);
 
         if (exec_status == 1) {
@@ -447,11 +491,9 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
         char *args[] = {file, NULL};
 
         int exec_status = test_exec(
-                    file, 
-                    args, 
-                    testpath_input, 
-                    testpath_output, 
-                    code_path, 
+                    submission_id,
+                    test_case_id,
+                    args,
                     result);
 
         if (exec_status == 1) {
@@ -611,11 +653,9 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
         char *args[] = {file, code_path, NULL};
 
         int exec_status = test_exec(
-            file, 
-            args, 
-            testpath_input, 
-            testpath_output, 
-            code_path, 
+            debug_submission_id,
+            debug_test_id,
+            args,
             exec_result);
 
         if (exec_status == 1) {
@@ -634,11 +674,9 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
         char *args[] = {file, NULL};
 
         int exec_status = test_exec(
-                    file, 
-                    args, 
-                    testpath_input, 
-                    testpath_output, 
-                    code_path, 
+                    debug_submission_id,
+                    debug_test_id,
+                    args,
                     exec_result);
 
         if (exec_status == 1) {
@@ -684,16 +722,16 @@ int main() {
 
     DEBUG = 1;
 
-    //struct CreateFilesResult *cfr = create_files(12312365, "print(int(input()) ** 2)", "Python 3 (3.10)");
-    //struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\n\nint main() {\n    int a;\n    cin >> a;\n    cout << a * a;\n    return 0;\n}", "C++ 17 (g++ 11.2)");
+    // struct CreateFilesResult *cfr = create_files(12312365, "print(int(input()) ** 2)", "Python 3 (3.10)");
+    // struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\n\nint main() {\n    int a;\n    cin >> a;\n    cout << a * a;\n    return 0;\n}", "C++ 17 (g++ 11.2)");
     //struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\n}", "C 17 (gcc 11.2)");
     /*printf(
     "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
     cfr->status,
     cfr->description);*/
     //struct TestResult *result = check_test_case(12312365, 12, "Python 3 (3.10)", "12", "144");
-    struct DebugResult *result = debug(12312365, 12, "C++ 17 (g++ 11.2)", "12");
-    //delete_files(12312365);
+    // struct DebugResult *result = debug(12312365, 12, "C++ 17 (g++ 11.2)", "12");
+    // delete_files(12312365);
 
     /*printf(
         "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\noutput: %s", 
