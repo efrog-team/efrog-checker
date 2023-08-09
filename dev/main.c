@@ -236,7 +236,7 @@ struct TestResult
     char *description;
 };
 
-int test_exec(
+int execute(
     int submission_id,
     int test_case_id,
     char **args,
@@ -245,7 +245,7 @@ int test_exec(
     //define for error:
 
     result->status = 6;
-    result->time = 10;
+    result->time = 0;
     result->cpu_time = 0;
     result->memory = 0;
     result->description = "";
@@ -293,10 +293,12 @@ int test_exec(
     }
 
     char *envp[] = {
+
         testpath_time_env,
         testpath_cpu_time_env,
         testpath_memory_env,
         NULL
+
     };
 
     pid_t pid = fork();
@@ -371,6 +373,12 @@ int test_exec(
 
             return 0;
         
+        } else if (status == 4) {
+
+            result->status = 4;
+            //result->description = "";
+            return 1;
+
         } else {
 
             result->status = 6;
@@ -469,7 +477,7 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
         char *file = py ? "/usr/bin/python3" : "/usr/bin/node";
         char *args[] = {file, code_path, NULL};
 
-        int exec_status = test_exec(
+        int exec_status = execute(
             submission_id,
             test_case_id,
             args,
@@ -490,7 +498,7 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
         char *file = code_path;
         char *args[] = {file, NULL};
 
-        int exec_status = test_exec(
+        int exec_status = execute(
                     submission_id,
                     test_case_id,
                     args,
@@ -652,7 +660,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
         char *file = py ? "/usr/bin/python3" : "/usr/bin/node";
         char *args[] = {file, code_path, NULL};
 
-        int exec_status = test_exec(
+        int exec_status = execute(
             debug_submission_id,
             debug_test_id,
             args,
@@ -673,7 +681,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
         char *file = code_path;
         char *args[] = {file, NULL};
 
-        int exec_status = test_exec(
+        int exec_status = execute(
                     debug_submission_id,
                     debug_test_id,
                     args,

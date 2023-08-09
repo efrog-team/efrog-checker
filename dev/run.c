@@ -78,6 +78,18 @@ int main(int argc, char **argv) {
 
             clock_gettime(CLOCK_MONOTONIC_RAW, &end);
 
+            if (!WIFEXITED(status)) {
+
+                exit(6); //server error
+
+            }
+
+            if (WEXITSTATUS(status) != 0) {
+
+                exit(4); //runtime error
+
+            }
+
             int time = get_diff_timespec(start, end);
 
             int cpu_time = (int)ceil(usage.ru_utime.tv_sec * 1000 + usage.ru_utime.tv_usec / 1000);
@@ -88,7 +100,7 @@ int main(int argc, char **argv) {
 
             }
 
-            if (cpu_time == 0) { 
+            if (cpu_time == 0) { //getrusage returns 0 if time is very small (pr < 1ms)
 
                 cpu_time = 1;
 
