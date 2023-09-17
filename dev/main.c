@@ -57,7 +57,7 @@ struct timeval time_diff_timeval(struct timeval start, struct timeval end) {
 
 }
 
-int get_diff_timespec(struct timespec start, struct timespec end) {
+int get_diff_timespec_up(struct timespec start, struct timespec end) {
 
     int diff;
 
@@ -871,7 +871,7 @@ int main() {
 
     struct TestResult *result = check_test_case(12312365, 12, "C++ 17 (g++ 11.2)", "12", "144", 4, 2);
     //struct DebugResult *result = debug(12312365, 12, "Python 3 (3.10)", "12");
-    // delete_files(12312365);
+    delete_files(12312365);
 
     printf(
         "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\nVM: %dKB", 

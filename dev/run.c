@@ -129,6 +129,8 @@ void signal_handler(int signum) {
     
     if (fp == NULL) {
 
+        clock_gettime(CLOCK_MONOTONIC_RAW, &end);
+
         if (strcmp(getenv("LANGUAGE"), "Python 3 (3.10)") == 0) {
             FILE *ferr = fopen(getenv("TESTPATH_STDERR"), "r");
 
@@ -155,7 +157,7 @@ void signal_handler(int signum) {
 
             if (!WIFSIGNALED(status)) {
 
-                create_all_files(0, 0, WTERMSIG(status), 0);
+                create_all_files(0, 0, 0, 0);
                 exit(4);
 
             }
