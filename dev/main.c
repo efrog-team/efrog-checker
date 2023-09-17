@@ -682,8 +682,8 @@ struct DebugResult {
                    6 - server error */      
     int time;
     int cpu_time;
-    int physical_memory;
     int virtual_memory;
+    int physical_memory;
     char *output;
     char *description;
 
@@ -797,9 +797,6 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     }
 
     result->status = exec_result->status;
-
-    fclose(file_output);
-
 
     file_output = fopen(testpath_output, "r");
 
