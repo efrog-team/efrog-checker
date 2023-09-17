@@ -13,6 +13,7 @@
 #include <time.h>
 #include <sys/resource.h>
 #include <fcntl.h>
+#include <errno.h>
 
 int DEBUG = 0;
 
@@ -95,7 +96,7 @@ struct CreateFilesResult {
 
 
 struct CreateFilesResult *create_files(int submission_id, char *code, char *language) {
-
+    
     struct CreateFilesResult *result = malloc(sizeof(struct CreateFilesResult));
 
     result->status = 6; //define for server error
@@ -132,7 +133,17 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
         }
 
+        if (py) {
+            fprintf(file_code, "%s", "import os, signal\n");
+        } else {
+            fprintf(file_code, "%s", "const { exec } = require('child_process');\n");
+        }
         fprintf(file_code, "%s", code);
+        if (py) {
+            fprintf(file_code, "%s", "\nos.kill(os.getpid(), signal.SIGSTOP)");
+        } else {
+            fprintf(file_code, "%s", "\nprocess.kill(process.pid, 'SIGSTOP');");
+        }
         fclose(file_code);
 
     } else if (strcmp(language, "C++ 17 (g++ 11.2)") == 0 || strcmp(language, "C 17 (gcc 11.2)") == 0) { //cpp and c
@@ -141,28 +152,29 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
         int code_path_length = path_length + getbytes(submission_id) + 5;
 
-        char code_path[code_path_length]; 
-        sprintf(code_path, cpp ? "%s/%d.cpp" : "%s/%d.c", path, submission_id);
+        char code_path_main[code_path_length + 5];
 
-        file_code = fopen(code_path, "w");
+        sprintf(code_path_main, cpp ? "%s/%d_main.cpp" : "%s/%d_main.c", path, submission_id);
+        FILE *file_code_main;
+        file_code_main = fopen(code_path_main, "w");
 
-        if (file_code == NULL) {
+        if (file_code_main == NULL) {
 
-            if(DEBUG) printf("file_code = NULL\n");
+            if(DEBUG) printf("file_code_main = NULL\n");
             return result;
 
         }
 
-        fprintf(file_code, "%s", code);
-        fclose(file_code);
+        fprintf(file_code_main, "#include <signal.h>\n#include <stdlib.h>\nvoid segfhand(int sig) {\n    exit(1);\n}\nvoid __attribute__((constructor)) ctor() {\n    signal(SIGSEGV, segfhand);\n}\nvoid __attribute__((destructor)) dtor() {\n    kill(getpid(), SIGSTOP);\n}\n%s", code);
+        fclose(file_code_main);
 
-        char compile_command[31 +  2 * code_path_length]; //g++-11 -static -s main.cpp -o main len : 23 (26 including -lm) +  2 * code_path_length + 5 ( 2>&1)
-        sprintf(compile_command, cpp ? "g++-11 -static -s %s 2>&1 -o %s/%d" : "gcc-11 -static -s %s 2>&1 -lm -o %s/%d", code_path, path, submission_id); 
+        char compile_command[40 + 2 * code_path_length]; //g++-11 -static -s main.cpp -o main len : 23 (26 including -lm) +  2 * code_path_length + 5 ( 2>&1)
+        sprintf(compile_command, cpp ? "g++-11 -static -s %s 2>&1 -o %s/%d" : "gcc-11 -static -s %s 2>&1 -lm -o %s/%d", code_path_main, path, submission_id); 
 
         FILE *ferr = popen(compile_command, "r");
 
-        char cerror_buffer[1000];
-        char cerror[10000];
+        char cerror_buffer[1000] = "";
+        char cerror[10000] = "";
 
         while (fgets(cerror_buffer, sizeof(cerror_buffer), ferr) != NULL) {
 
@@ -171,11 +183,10 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
         }
 
-        pclose(ferr);
         strcat(cerror, "\0");
 
+        if (WEXITSTATUS(pclose(ferr)) != 0) {
 
-        if (strlen(cerror) != 0) {
 
             if (DEBUG) printf("failed to compile (C or C++)\n");
 
@@ -232,7 +243,8 @@ struct TestResult
                    6 - Server error */      
     int time; //ms
     int cpu_time;
-    int memory;
+    int virtual_memory;
+    int physical_memory;
     char *description;
 };
 
@@ -240,43 +252,62 @@ int execute(
     int submission_id,
     int test_case_id,
     char **args,
-    struct TestResult *result) { 
+    struct TestResult *result,
+    int real_time_limit,
+    int virtual_memory_limit /*IN MiB*/,
+    char *language) { 
 
     //define for error:
 
     result->status = 6;
     result->time = 0;
     result->cpu_time = 0;
-    result->memory = 0;
-    result->description = "";
+    result->virtual_memory = 0;
+    result->physical_memory = 0;
 
     const int path_length = 14 + getbytes(submission_id);
     const int testpath_length = path_length + getbytes(test_case_id);
 
     char testpath_input[testpath_length + 10]; //..._input.txt
     char testpath_output[testpath_length + 11]; //..._output.txt
+    char testpath_error[testpath_length + 10]; //..._error.txt
     char testpath_time[testpath_length + 9]; //..._time.txt
     char testpath_cpu_time[testpath_length + 13]; //..._cpu_time.txt
-    char testpath_memory[testpath_length + 11]; //..._memory.txt
+    char testpath_virtual_memory[testpath_length + 19]; //..._virtual_memory.txt
+    char testpath_physical_memory[testpath_length + 20]; //..._physical_memory.txt
 
     sprintf(testpath_input, "checker_files/%d/%d_input.txt", submission_id, test_case_id);
     sprintf(testpath_output, "checker_files/%d/%d_output.txt", submission_id, test_case_id);
+    sprintf(testpath_error, "checker_files/%d/%d_stderr.txt", submission_id, test_case_id);
     sprintf(testpath_time, "checker_files/%d/%d_time.txt", submission_id, test_case_id);
     sprintf(testpath_cpu_time, "checker_files/%d/%d_cpu_time.txt", submission_id, test_case_id);
-    sprintf(testpath_memory, "checker_files/%d/%d_memory.txt", submission_id, test_case_id);
+    sprintf(testpath_virtual_memory, "checker_files/%d/%d_virtual_memory.txt", submission_id, test_case_id);
+    sprintf(testpath_physical_memory, "checker_files/%d/%d_physical_memory.txt", submission_id, test_case_id);
 
+    char language_env[strlen(language) + 10];
     char testpath_time_env[2 * (testpath_length + 9) + 1];
     char testpath_cpu_time_env[2 * (testpath_length + 13) + 1];
-    char testpath_memory_env[2 * (testpath_length + 11) + 1];
+    char testpath_virtual_memory_env[2 * (testpath_length + 19) + 1];
+    char testpath_physical_memory_env[2 * (testpath_length + 20) + 1];
 
+    char real_time_limit_env[15 + getbytes(real_time_limit)];
+    char virtual_memory_limit_env[21 + getbytes(virtual_memory_limit)]; 
+    char testpath_stderr_env[27 + testpath_length];
+
+    sprintf(language_env, "LANGUAGE=%s", language);
     sprintf(testpath_time_env, "TESTPATH_TIME=%s", testpath_time);
     sprintf(testpath_cpu_time_env, "TESTPATH_CPU_TIME=%s", testpath_cpu_time);
-    sprintf(testpath_memory_env, "TESTPATH_MEMORY=%s", testpath_memory);
+    sprintf(testpath_virtual_memory_env, "TESTPATH_VIRTUAL_MEMORY=%s", testpath_virtual_memory);
+    sprintf(testpath_physical_memory_env, "TESTPATH_PHYSICAL_MEMORY=%s", testpath_physical_memory);
+    sprintf(real_time_limit_env, "REAL_TIME_LIMIT=%d", real_time_limit);
+    sprintf(virtual_memory_limit_env, "VIRTUAL_MEMORY_LIMIT=%d", virtual_memory_limit);
+    sprintf(testpath_stderr_env, "TESTPATH_STDERR=%s", testpath_error);
 
     int input_fd = open(testpath_input, O_RDONLY);
 
     if (input_fd == -1) {
 
+        close(input_fd);
         if (DEBUG) printf("failed to open input file");
         return 1;
 
@@ -286,55 +317,74 @@ int execute(
 
     if (output_fd == -1) {
 
-        close(input_fd);
+        close(output_fd);
         if (DEBUG) printf("failed to open output file");
+        return 1;
+
+    }
+
+    int error_fd = open(testpath_error, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+
+    if (error_fd == -1) {
+
+        close(error_fd);
+        if (DEBUG) printf("failed to error file");
         return 1;
 
     }
 
     char *envp[] = {
 
+        language_env,
         testpath_time_env,
         testpath_cpu_time_env,
-        testpath_memory_env,
+        testpath_virtual_memory_env,
+        testpath_physical_memory_env,
+        real_time_limit_env,
+        virtual_memory_limit_env,
+        testpath_stderr_env,
         NULL
 
     };
 
-    pid_t pid = fork();
+    pid_t child_pid = fork();
 
-    if (pid == 0) {
+    if (child_pid == 0) {
 
         dup2(input_fd, STDIN_FILENO);
         dup2(output_fd, STDOUT_FILENO);
+        dup2(error_fd, STDERR_FILENO);
 
         close(input_fd);
         close(output_fd);
+        close(error_fd);
 
         execve("run", args, envp);
 
-    } else if (pid > 0) {
+    } else if (child_pid > 0) {
 
         close(input_fd);
         close(output_fd);
         
         int status;
-        waitpid(pid, &status, 0);
+        waitpid(child_pid, &status, 0);
 
         int wexitstatus = WEXITSTATUS(status);
-        
-        if (wexitstatus == 0) {
 
-            int time, cpu_time, memory;
+        printf("%d", WEXITSTATUS(status));
+
+        if (wexitstatus == 0 || wexitstatus == 2 ||  wexitstatus == 4 || wexitstatus == 3) {
+
+            int time, cpu_time, virtual_memory, physical_memory;
 
             FILE *file_time;
             FILE *file_cpu_time;
-            FILE *file_memory;
+            FILE *file_virtual_memory;
+            FILE *file_physical_memory;
 
             file_time = fopen(testpath_time, "r");
             
             if (file_time == NULL) {
-
                 if(DEBUG) printf("file_time = NULL\n");
                 return 1;
                 
@@ -355,39 +405,46 @@ int execute(
             fscanf(file_cpu_time, "%d", &cpu_time);
             fclose(file_cpu_time);
 
-            file_memory = fopen(testpath_memory, "r");
+            file_virtual_memory = fopen(testpath_virtual_memory, "r");
 
-            if (file_memory == NULL) {
+            if (file_virtual_memory == NULL) {
 
-                if(DEBUG) printf("file_memory = NULL\n");
+                if(DEBUG) printf("file_virtual_memory = NULL\n");
                 return 1;
                 
             }
 
-            fscanf(file_memory, "%d", &memory);
-            fclose(file_memory);
+            fscanf(file_virtual_memory, "%d", &virtual_memory);
+            fclose(file_virtual_memory);
 
-            result->status = 0;
+            file_physical_memory = fopen(testpath_physical_memory, "r");
+
+            if (file_physical_memory == NULL) {
+
+                if(DEBUG) printf("file_physical_memory = NULL\n");
+                return 1;
+                
+            }
+
+            fscanf(file_physical_memory, "%d", &physical_memory);
+            fclose(file_physical_memory);
+
+            result->status = wexitstatus;
             result->time = time;
             result->cpu_time = cpu_time;
-            result->memory = memory;
+            result->virtual_memory = virtual_memory;
+            result->physical_memory = physical_memory;
             result->description = "";
 
             return 0;
         
-        } else if (wexitstatus == 4) {
-
-            result->status = 4;
-            //result->description = "";
-            return 1;
-
         } else {
-            printf("status : %d\n", status);
+
             result->status = 6;
             result->time = 0;
             result->cpu_time = 0;
-            result->memory = 0;
-            result->description = "";
+            result->virtual_memory = 0;
+            result->physical_memory = 0;
             return 1; //error
 
         }
@@ -398,8 +455,8 @@ int execute(
         result->status = 6;
         result->time = 0;
         result->cpu_time = 0;
-        result->memory = 0;
-        result->description = "";
+        result->virtual_memory = 0;
+        result->physical_memory = 0;
         return 1; //error
         
     }
@@ -407,13 +464,14 @@ int execute(
 
 }
 
-struct TestResult *check_test_case(int submission_id, int test_case_id, char *language, char *input, char *solution) {
+struct TestResult *check_test_case(int submission_id, int test_case_id, char *language, char *input, char *solution, int real_time_limit, int virtual_memory_limit) {
 
     struct TestResult *result = malloc(sizeof(struct TestResult));
     result->status = 6; // define for error
     result->time = 0; 
     result->cpu_time = 0;
-    result->memory = 0;
+    result->virtual_memory = 0;
+    result->physical_memory = 0;
     result->description = "";
     //struct Result result = {6, 0, 0, 0, "", ""}; // define for error
 
@@ -483,7 +541,10 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
             submission_id,
             test_case_id,
             args,
-            result);
+            result,
+            real_time_limit,
+            virtual_memory_limit,
+            language);
 
         if (exec_status == 1) {
             if (DEBUG) printf("failed in child process");
@@ -504,7 +565,10 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
                     submission_id,
                     test_case_id,
                     args,
-                    result);
+                    result,
+                    real_time_limit,
+                    virtual_memory_limit,
+                    language);
 
         if (exec_status == 1) {
 
@@ -517,6 +581,24 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
 
         if (DEBUG) printf("unknown language");
         return result;
+
+    }
+
+    if (result->status == 3) {
+
+        return result; //memory limit
+
+    }
+
+    if (result->status == 4) {
+
+        return result; //runtime error
+
+    }
+
+    if(result->status == 2) {
+
+        return result; //Time limit
 
     }
 
@@ -600,7 +682,8 @@ struct DebugResult {
                    6 - server error */      
     int time;
     int cpu_time;
-    int memory;
+    int physical_memory;
+    int virtual_memory;
     char *output;
     char *description;
 
@@ -615,7 +698,8 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     result->status = 6; // define for error
     result->time = 0; 
     result->cpu_time = 0;
-    result->memory = 0;
+    result->virtual_memory = 0;
+    result->physical_memory = 0;
     result->description = "";
 
     char output[1000000] = "";
@@ -653,6 +737,8 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 
     }
 
+    fclose(file_output);
+
     if (strcmp(language, "Python 3 (3.10)") == 0 || strcmp(language, "Node.js (20.x)") == 0) {
 
         bool py = strcmp(language, "Python 3 (3.10)") == 0;
@@ -667,7 +753,10 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
             debug_submission_id,
             debug_test_id,
             args,
-            exec_result);
+            exec_result,
+            10,
+            1024,
+            language);
 
         if (exec_status == 1) {
             if (DEBUG) printf("failed in child process");
@@ -688,7 +777,10 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
                     debug_submission_id,
                     debug_test_id,
                     args,
-                    exec_result);
+                    exec_result,
+                    10,
+                    1024,
+                    language);
 
         if (exec_status == 1) {
 
@@ -704,12 +796,10 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 
     }
 
+    result->status = exec_result->status;
+
     fclose(file_output);
 
-    result->status = 0; //successful
-    result->time = exec_result->time;
-    result->cpu_time = exec_result->cpu_time;
-    result->memory = exec_result->memory;
 
     file_output = fopen(testpath_output, "r");
 
@@ -725,6 +815,43 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     strcat(output, "\0");
     
     result->output = output;
+    result->time = exec_result->time;
+    result->cpu_time = exec_result->cpu_time;
+    result->virtual_memory = exec_result->virtual_memory;
+    result->physical_memory = exec_result->physical_memory;
+    
+    if(result->status == 4) { //runtime error
+
+        char error_buffer[1000];
+        char error[10000];
+
+        char testpath_error[testpath_input_length + 10]; //..._error.txt
+        sprintf(testpath_error, "checker_files/%d/%d_stderr.txt", debug_submission_id, debug_test_id);
+
+        FILE *ferr;
+        ferr = fopen(testpath_error, "r");
+
+        while (fgets(error_buffer, sizeof(error_buffer), ferr) != NULL) {
+
+            strcat(error, error_buffer);
+            strcat(error, "\n");
+
+        }
+
+        pclose(ferr);
+        strcat(error, "\0");
+        result->description = error;
+
+        return result;
+    }
+    if (result->status == 2) {
+
+        return result; //time limit
+
+    }
+
+    result->status = 0; //successful
+
     return result;
 
 }
@@ -733,23 +860,35 @@ int main() {
 
     DEBUG = 1;
 
-    struct CreateFilesResult *cfr = create_files(12312365, "print(int(input()) ** 2", "Python 3 (3.10)");
-    // struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\n\nint main() {\n    int a;\n    cin >> a;\n    cout << a * a;\n    return 0;\n}", "C++ 17 (g++ 11.2)");
+    // struct CreateFilesResult *cfr = create_files(12312365, "print(int(input()) ** 2)", "Python 3 (3.10)");
+    // struct CreateFilesResult *cfr = create_files(12312365, "const Console = require(\"efrog\").Console;\nConsole.write(Number(Console.readAll()) ** 2);", "Node.js (20.x)");
+    struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\nint main() {\nint* nptr = NULL;\ncout << *nptr;\n    int a;\n    cin >> a;\n    cout << a * a;\n    return 0;\n}", "C++ 17 (g++ 11.2)");
     //struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\n}", "C 17 (gcc 11.2)");
     printf(
     "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
     cfr->status,
     cfr->description);
-    struct TestResult *result = check_test_case(12312365, 12, "Python 3 (3.10)", "12", "144");
-    // struct DebugResult *result = debug(12312365, 12, "C++ 17 (g++ 11.2)", "12");
-    //delete_files(12312365);
+
+    struct TestResult *result = check_test_case(12312365, 12, "C++ 17 (g++ 11.2)", "12", "144", 4, 2);
+    //struct DebugResult *result = debug(12312365, 12, "Python 3 (3.10)", "12");
+    // delete_files(12312365);
 
     printf(
-        "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
+        "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\nVM: %dKB", 
         result->status, 
         result->time, 
         result->cpu_time, 
-        result->memory);
+        result->physical_memory,
+        result->virtual_memory);
+    
+    // printf(
+    //     "DebugResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\ndescription: %s\noutput: %s", 
+    //     result->status, 
+    //     result->time, 
+    //     result->cpu_time, 
+    //     result->memory,
+    //     result->description,
+    //     result->output);
 
     return 0;
 
