@@ -12,6 +12,11 @@
 #include <ulimit.h>
 #include <string.h>
 #include <errno.h>
+#include <linux/seccomp.h>
+#include <linux/filter.h>
+#include <sys/prctl.h>
+#include <linux/bpf.h>
+#include <sys/syscall.h>
 
 int DEBUG = 0;
 
@@ -155,7 +160,7 @@ void signal_handler(int signum) {
 
             waitpid(child_pid, &status, 0);
 
-            if (!WIFSIGNALED(status)) {
+            if (!WIFSIGNALED(status)) { //статус выхода без сигнала - рантайм
 
                 create_all_files(0, 0, 0, 0);
                 exit(4);
@@ -225,11 +230,36 @@ int main(int argc, char **argv) {
 
     alarm(atoi(getenv("REAL_TIME_LIMIT")));
 
+    /*struct sock_filter seccomp_filter[] = {
+        BPF_STMT(BPF_LD | BPF_W | BPF_ABS, 4),
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_exit, 0, 3),
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_exit_group, 0, 2),
+        BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+
+        Block file-related syscalls 
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_open, 0, 1),
+        BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL),
+
+        Default allow for all other syscalls 
+        BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+    };
+
+    struct sock_fprog prog = {
+        .len = sizeof(seccomp_filter) / sizeof(seccomp_filter[0]),
+        .filter = seccomp_filter,
+    };*/
+
+
+
     child_pid = fork();
     struct rlimit limit = {atoi(getenv("VIRTUAL_MEMORY_LIMIT")) * 1024 * 1024, atoi(getenv("VIRTUAL_MEMORY_LIMIT")) * 1024 * 1024};
-
+    /*prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+    prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog);*/
     if (child_pid == 0) {
+
+
         /*-------------------------------child process-------------------------------*/
+        
         setrlimit(RLIMIT_AS, &limit);
 
         execv(argv[0], argv);

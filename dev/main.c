@@ -15,7 +15,11 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#define MiB 1048576 // (1024 * 1024)
+
+
 int DEBUG = 0;
+
 
 struct timespec time_diff_timespec(struct timespec start, struct timespec end) {
 
@@ -371,7 +375,7 @@ int execute(
 
         int wexitstatus = WEXITSTATUS(status);
 
-        printf("%d", WEXITSTATUS(status));
+        //printf("%d", WEXITSTATUS(status));
 
         if (wexitstatus == 0 || wexitstatus == 2 ||  wexitstatus == 4 || wexitstatus == 3) {
 
@@ -466,6 +470,9 @@ int execute(
 
 struct TestResult *check_test_case(int submission_id, int test_case_id, char *language, char *input, char *solution, int real_time_limit, int virtual_memory_limit) {
 
+    //int output_max_size = 1024 * 1024;
+    size_t max_output_size = 10 * MiB * sizeof(char);
+
     struct TestResult *result = malloc(sizeof(struct TestResult));
     result->status = 6; // define for error
     result->time = 0; 
@@ -474,8 +481,11 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     result->physical_memory = 0;
     result->description = "";
     //struct Result result = {6, 0, 0, 0, "", ""}; // define for error
+    //char output[2000000] = "";
+    char* output = (char*)malloc(max_output_size);
 
-    char output[1000000] = "";
+    //char* output = (char*)malloc(output_max_size);
+    //output = "";
 
     const int path_length = 14 + getbytes(submission_id);
     const int testpath_input_length = path_length + getbytes(test_case_id) + 11;
@@ -605,11 +615,13 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     file_output = fopen(testpath_output, "r");
     file_solution = fopen(testpath_solution, "r");
 
-    char output_buffer[1000000], solution_buffer[1000000];
+    //char output_buffer[2000000], solution_buffer[2000000];
+    char* output_buffer = (char*)malloc(max_output_size);
+    char* solution_buffer = (char*)malloc(max_output_size);
+
+    char *output_read = fgets(output_buffer, max_output_size, file_output);
     
-    char *output_read = fgets(output_buffer, 1000000, file_output);
-    
-    char *solution_read = fgets(solution_buffer, 1000000, file_solution);
+    char *solution_read = fgets(solution_buffer, max_output_size, file_solution);
     
     int status = -1; // checking 
 
@@ -621,16 +633,18 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
 
                 output_buffer[i + 1] = '\0';
                 break;
+                
             }
 
         }
 
         for (int i = strlen(solution_buffer) - 1; i >= 0; i--) {
 
-            if (solution_buffer[i] != '\n' && solution_buffer[i] != ' ') { 
+            if (solution_buffer[i] != '\n' && solution_buffer[i] != ' ' && solution_buffer[i] != '\r') { 
 
                 solution_buffer[i + 1] = '\0';
                 break;
+
             }
 
         }
@@ -644,8 +658,8 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
             break;
         }
 
-        output_read = fgets(output_buffer, 1000000, file_output);
-        solution_read = fgets(solution_buffer, 1000000, file_solution);
+        output_read = fgets(output_buffer, max_output_size, file_output);
+        solution_read = fgets(solution_buffer, max_output_size, file_solution);
 
     }
 
@@ -667,7 +681,6 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     fclose(file_output);
 
     result->status = status;
-
     return result;
     
 }
@@ -682,8 +695,8 @@ struct DebugResult {
                    6 - server error */      
     int time;
     int cpu_time;
-    int virtual_memory;
     int physical_memory;
+    int virtual_memory;
     char *output;
     char *description;
 
@@ -691,6 +704,9 @@ struct DebugResult {
 
 
 struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *language, char *input) {
+
+    //int output_max_size = 1024 * 1024;
+    size_t max_output_size = 10 * MiB * sizeof(char); //10 MiB
 
     struct DebugResult *result = malloc(sizeof(struct DebugResult));
     struct TestResult *exec_result = malloc(sizeof(struct TestResult));
@@ -702,8 +718,9 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     result->physical_memory = 0;
     result->description = "";
 
-    char output[1000000] = "";
-
+    //char output[2000000] = "";
+    char* output = (char*)malloc(max_output_size);
+    //output = "";
     const int path_length = 14 + getbytes(debug_submission_id);
     const int testpath_input_length = path_length + getbytes(debug_test_id) + 11;
 
@@ -798,11 +815,13 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 
     result->status = exec_result->status;
 
+
     file_output = fopen(testpath_output, "r");
 
-    char output_buffer[1000000];
+    //char output_buffer[2000000]; 
+    char* output_buffer = (char*)malloc(max_output_size);
 
-    while(fgets(output_buffer, 1000000, file_output)) {
+    while(fgets(output_buffer, max_output_size, file_output)) {
 
         strcat(output, output_buffer);
         strcat(output, "\n");
@@ -848,7 +867,6 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     }
 
     result->status = 0; //successful
-
     return result;
 
 }
@@ -856,17 +874,17 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 int main() {
 
     DEBUG = 1;
-
-    // struct CreateFilesResult *cfr = create_files(12312365, "print(int(input()) ** 2)", "Python 3 (3.10)");
+    
+    struct CreateFilesResult *cfr = create_files(12312365, "print(1)\nprint(2)\nprint(3)\nprint(4)", "Python 3 (3.10)");
     // struct CreateFilesResult *cfr = create_files(12312365, "const Console = require(\"efrog\").Console;\nConsole.write(Number(Console.readAll()) ** 2);", "Node.js (20.x)");
-    struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\nint main() {\nint* nptr = NULL;\ncout << *nptr;\n    int a;\n    cin >> a;\n    cout << a * a;\n    return 0;\n}", "C++ 17 (g++ 11.2)");
+    //struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}", "C++ 17 (g++ 11.2)");
     //struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\n}", "C 17 (gcc 11.2)");
-    printf(
+    /*printf(
     "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
     cfr->status,
-    cfr->description);
+    cfr->description);*/
 
-    struct TestResult *result = check_test_case(12312365, 12, "C++ 17 (g++ 11.2)", "12", "144", 4, 2);
+    struct TestResult *result = check_test_case(12312365, 12, "Python 3 (3.10)", "12", "1\r\n2\r\n3\r\n4", 4, 2000);
     //struct DebugResult *result = debug(12312365, 12, "Python 3 (3.10)", "12");
     delete_files(12312365);
 
