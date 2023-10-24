@@ -824,7 +824,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     while(fgets(output_buffer, max_output_size, file_output)) {
 
         strcat(output, output_buffer);
-        strcat(output, "\n");
+        //strcat(output, "\n");
 
     }
 
@@ -884,8 +884,8 @@ int main() {
     cfr->status,
     cfr->description);*/
 
-    struct TestResult *result = check_test_case(12312365, 12, "Python 3 (3.10)", "12", "1\r\n2\r\n3\r\n4", 4, 2000);
-    //struct DebugResult *result = debug(12312365, 12, "Python 3 (3.10)", "12");
+    //struct TestResult *result = check_test_case(12312365, 12, "Python 3 (3.10)", "12", "1\r\n2\r\n3\r\n4", 4, 2000);
+    struct DebugResult *result = debug(12312365, 12, "Python 3 (3.10)", "12");
     delete_files(12312365);
 
     printf(
