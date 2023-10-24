@@ -254,7 +254,7 @@ int main(int argc, char **argv) {
     child_pid = fork();
     struct rlimit limit = {atoi(getenv("VIRTUAL_MEMORY_LIMIT")) * 1024 * 1024, atoi(getenv("VIRTUAL_MEMORY_LIMIT")) * 1024 * 1024};
     struct rlimit rl;
-    rl.rlim_cur = 16 * 1024 * 1024;
+    rl.rlim_cur = 1024 * 1024 * 1024;
     /*prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
     prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog);*/
     if (child_pid == 0) {
