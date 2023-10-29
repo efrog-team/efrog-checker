@@ -231,7 +231,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
 int main () {
 
-    // struct CreateFilesResult *cfr = create_files(12312365, "using System;\nclass Program\n{\n    static void Main()\n    {\n        string input = Console.ReadLine();\n        double number = Convert.ToDouble(input);\n        double square = number * number;\n        Console.WriteLine($\"{square}\");\n    }\n}", "C# (Mono 6.8)", 1);
+    //struct CreateFilesResult *cfr = create_files(12312365, "using System;\nclass Program\n{\n    static void Main()\n    {\n        string input = Console.ReadLine();\n        double number = Convert.ToDouble(input);\n        double square = number * number;\n        Console.WriteLine($\"{square}\");\n    }\n}", "C# (Mono 6.8)", 1);
     // struct CreateFilesResult *cfr = create_files(12312365, "const Console = require(\"efrog\").Console;\nConsole.write(Number(Console.readAll()) ** 2);", "Node.js (20.x)", 1);
     // struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}", "C++ 17 (g++ 11.2)", 1);
     // struct CreateFilesResult *cfr = create_files(12312365, "#iclude <stdio.h>\nint main () {\nint a;\nscnf(\"%d\", &a);\n}", "C 17 (gcc 11.2)", 1);

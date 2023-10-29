@@ -880,7 +880,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     result->output = output;
     result->time = exec_result->time;
     result->cpu_time = exec_result->cpu_time;
-    result->virtual_memory = exec_result->virtual_memory;
+    result->virtual_memory = 0;
     result->physical_memory = exec_result->physical_memory;
     
     if(result->status == 4) { //runtime error

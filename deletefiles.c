@@ -25,7 +25,7 @@ int delete_files(int submission_id, int submission) { // if submission = 1 S_id 
     sprintf(cf_id_path, submission ? "checker_files/S_%d" : "checker_files/D_%d", submission_id);
 
     char* command = (char*)malloc(MP_len); //command to delete dir
-    sprintf(command, "rm -rf %s", dir_path);
+    sprintf(command, "rm -rf %s", cf_id_path);
 
     if (system(command) == 0) {
 

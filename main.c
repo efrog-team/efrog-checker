@@ -16,6 +16,7 @@
 #include <errno.h>
 
 #define GiB (1024L * 1024L * 1024L)
+#define MiB (1024L * 1024L)
 
 #define MP_len 1000
 
@@ -718,17 +719,6 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
 
 }
 
-int main () {
-    struct TestResult *result = check_test_case(12312365, 12, cs, "12", "144", 1, 20, 1);
-    printf(
-    "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
-    result->status, 
-    result->time, 
-    result->cpu_time, 
-    result->physical_memory
-    );
-}
-
 int delete_files(int submission_id, int submission) { // if submission = 1 S_id else D_id
     
     char* cf_id_path = (char*)malloc(MP_len); //checker files path
@@ -736,7 +726,7 @@ int delete_files(int submission_id, int submission) { // if submission = 1 S_id 
     sprintf(cf_id_path, submission ? "checker_files/S_%d" : "checker_files/D_%d", submission_id);
 
     char* command = (char*)malloc(MP_len); //command to delete dir
-    sprintf(command, "rm -rf %s", dir_path);
+    sprintf(command, "rm -rf %s", cf_id_path);
 
     if (system(command) == 0) {
 
@@ -749,3 +739,289 @@ int delete_files(int submission_id, int submission) { // if submission = 1 S_id 
 
     }
 }
+
+struct DebugResult {
+
+    int status; /* 0 - Successful
+                   2 - Time limit
+                   3 - Memory limit
+                   4 - Runtime error
+                   5 - Compilation error
+                   6 - server error */      
+    int time;
+    int cpu_time;
+    int physical_memory;
+    int virtual_memory;
+    char *output;
+    char *description;
+
+};
+
+struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *language, char *input, int submission) {
+
+    //int output_max_size = 1024 * 1024;
+    size_t max_output_size = 10 * MiB * sizeof(char); //10 MiB
+
+    struct DebugResult *result = malloc(sizeof(struct DebugResult));
+    struct TestResult *exec_result = malloc(sizeof(struct TestResult));
+
+    result->status = 6; // define for error
+    result->time = 0; 
+    result->cpu_time = 0;
+    result->virtual_memory = 0;
+    result->physical_memory = 0;
+    result->description = "";
+
+    //char output[2000000] = "";
+    char* output = (char*)malloc(max_output_size);
+
+    char* cf_id_path = (char*)malloc(MP_len); //checker files path
+    sprintf(cf_id_path, submission ? "checker_files/S_%d" : "checker_files/D_%d", debug_submission_id);
+
+    char* testpath_input = (char*)malloc(MP_len);
+    char *testpath_output = (char*)malloc(MP_len);
+
+    sprintf(testpath_input, "%s/%d_input.txt", cf_id_path, debug_test_id);
+    sprintf(testpath_output, "%s/%d_output.txt", cf_id_path, debug_test_id);
+
+    FILE *file_output;
+    FILE *file_input;
+
+    file_input = fopen(testpath_input, "w");
+
+    if (file_input == NULL) {
+
+        printf("file_input = NULL\n");
+        return result;
+        
+    }
+
+    fprintf(file_input, "%s", input);
+    fclose(file_input);
+
+    file_output = fopen(testpath_output, "w");
+
+    if (file_output == NULL) {
+
+        printf("file_output = NULL\n");
+        return result;
+
+    }
+
+    fclose(file_output);
+
+    char* user_code_path = (char*)malloc(MP_len); //user code path in checker_files dir
+    int exec_status;
+
+    if (strcmp(language, python) == 0) { //python
+
+        sprintf(user_code_path, "%s/main.py", cf_id_path);
+
+        char *file = "/usr/bin/python3";
+        char *args[] = {file, user_code_path, NULL};
+
+        exec_status = execute(
+            debug_submission_id,
+            debug_test_id,
+            args,
+            exec_result,
+            10,
+            language,
+            submission);
+
+    /*---------------------------------------------------*/
+    } else if (strcmp(language, js) == 0) { //js
+
+        sprintf(user_code_path, "%s/index.js", cf_id_path);
+
+        char *file = "/usr/bin/node";
+        char *args[] = {file, user_code_path, NULL};
+
+        exec_status = execute(
+            debug_submission_id,
+            debug_test_id,
+            args,
+            exec_result,
+            10,
+            language,
+            submission);
+
+    /*---------------------------------------------------*/
+    } else if (strcmp(language, cpp) == 0) { //cpp
+
+        sprintf(user_code_path, "%s/main.cpp", cf_id_path);
+
+        char *file = user_code_path;
+        char *args[] = {file, NULL};
+
+        exec_status = execute(
+            debug_submission_id,
+            debug_test_id,
+            args,
+            exec_result,
+            10,
+            language,
+            submission);
+    /*---------------------------------------------------*/
+    } else if (strcmp(language, c) == 0) { //c
+
+        sprintf(user_code_path, "%s/main.c", cf_id_path);
+
+        char *file = user_code_path;
+        char *args[] = {file, NULL};
+
+        exec_status = execute(
+            debug_submission_id,
+            debug_test_id,
+            args,
+            exec_result,
+            10,
+            language,
+            submission);
+
+    /*---------------------------------------------------*/
+    } else if (strcmp(language, cs) == 0) { //cs
+
+        sprintf(user_code_path, "%s/Program.exe", cf_id_path); // Mono .cs -> .exe compilation
+
+        char *file = "/usr/bin/mono";
+        char *args[] = {file, user_code_path, NULL};
+
+        exec_status = execute(
+            debug_submission_id,
+            debug_test_id,
+            args,
+            exec_result,
+            10,
+            language,
+            submission);
+
+    /*---------------------------------------------------*/
+    } else { // error: Unknown language
+
+        printf("ERROR : Unknown language\n");
+        return result;
+
+    }
+
+    if (exec_status == 1) { //Failed in child process
+
+        printf("ERROR : Failed in child process");
+        return result;
+
+    }
+
+        result->status = exec_result->status;
+
+
+    file_output = fopen(testpath_output, "r");
+
+    //char output_buffer[2000000]; 
+    char* output_buffer = (char*)malloc(max_output_size);
+
+    while(fgets(output_buffer, max_output_size, file_output)) {
+
+        strcat(output, output_buffer);
+        //strcat(output, "\n");
+
+    }
+
+    strcat(output, "\0");
+    
+    result->output = output;
+    result->time = exec_result->time;
+    result->cpu_time = exec_result->cpu_time;
+    result->virtual_memory = 0;
+    result->physical_memory = exec_result->physical_memory;
+    
+    if(result->status == 4) { //runtime error
+
+        char error_buffer[1000];
+        char error[10000];
+
+        char testpath_error[MP_len]; //..._error.txt
+        sprintf(testpath_error, "%s/%d_stderr.txt", cf_id_path, debug_test_id);
+
+        FILE *ferr;
+        ferr = fopen(testpath_error, "r");
+
+        while (fgets(error_buffer, sizeof(error_buffer), ferr) != NULL) {
+
+            strcat(error, error_buffer);
+            strcat(error, "\n");
+
+        }
+
+        pclose(ferr);
+        strcat(error, "\0");
+        result->description = error;
+
+        return result;
+    }
+
+
+    if (result->physical_memory > 1024 * 1024) { //if RSS usage > RSS limit (Postfactum) (comparison KiB and MiB) -> (KiB and KiB * 1024)
+
+        result->physical_memory = 1024 * 1024;
+        result->status = 3;
+
+    }
+
+    if (result->status == 2) {
+
+        return result; //time limit
+
+    }
+
+    if (result->status == 3) {
+
+        return result; //memory limit
+
+    }
+
+    if (result->status == 4) {
+
+        return result; //runtime error
+
+    }
+
+    if(result->status == 2) {
+
+        return result; //Time limit
+
+    }
+
+    result->status = 0; //successful
+    return result;
+
+}
+
+int main () {
+    struct CreateFilesResult *cfr = create_files(12312365, "using System;\nclass Program\n{\n    static void Main()\n    {\n        string input = Console.ReadLine();\n        double number = Convert.ToDouble(input);\n        double square = number * number;\n        Console.WriteLine($\"{square}\");\n    }\n}", "C# (Mono 6.8)", 0);
+    printf(
+    "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
+    cfr->status,
+    cfr->description);
+
+    /*struct TestResult *result = check_test_case(12312365, 12, cs, "12", "144", 1, 20, 1);
+    printf(
+    "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
+    result->status, 
+    result->time, 
+    result->cpu_time, 
+    result->physical_memory
+    );*/
+    struct DebugResult *result = debug(12312365, 12, cs, "12", 0);
+
+    printf(
+        "DebugResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\ndescription: %s\noutput: %s", 
+        result->status, 
+        result->time, 
+        result->cpu_time, 
+        result->physical_memory,
+        result->description,
+        result->output);
+
+    delete_files(12312365, 0);
+}
+
