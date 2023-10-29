@@ -562,7 +562,7 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     /*---------------------------------------------------*/
     } else if (strcmp(language, cpp) == 0) { //cpp
 
-        sprintf(user_code_path, "%s/main.cpp", cf_id_path);
+        sprintf(user_code_path, "%s/main", cf_id_path);
 
         char *file = user_code_path;
         char *args[] = {file, NULL};
@@ -578,7 +578,7 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     /*---------------------------------------------------*/
     } else if (strcmp(language, c) == 0) { //c
 
-        sprintf(user_code_path, "%s/main.c", cf_id_path);
+        sprintf(user_code_path, "%s/main", cf_id_path);
 
         char *file = user_code_path;
         char *args[] = {file, NULL};
@@ -750,8 +750,8 @@ struct DebugResult {
                    6 - server error */      
     int time;
     int cpu_time;
-    int physical_memory;
     int virtual_memory;
+    int physical_memory;
     char *output;
     char *description;
 
@@ -882,7 +882,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     /*---------------------------------------------------*/
     } else if (strcmp(language, cs) == 0) { //cs
 
-        sprintf(user_code_path, "%s/Program.exe", cf_id_path); // Mono .cs -> .exe compilation
+        sprintf(user_code_path, "%s/Program", cf_id_path); // Mono .cs -> .exe compilation
 
         char *file = "/usr/bin/mono";
         char *args[] = {file, user_code_path, NULL};
