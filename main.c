@@ -849,7 +849,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     /*---------------------------------------------------*/
     } else if (strcmp(language, cpp) == 0) { //cpp
 
-        sprintf(user_code_path, "%s/main.cpp", cf_id_path);
+        sprintf(user_code_path, "%s/main", cf_id_path);
 
         char *file = user_code_path;
         char *args[] = {file, NULL};
@@ -865,7 +865,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     /*---------------------------------------------------*/
     } else if (strcmp(language, c) == 0) { //c
 
-        sprintf(user_code_path, "%s/main.c", cf_id_path);
+        sprintf(user_code_path, "%s/main", cf_id_path);
 
         char *file = user_code_path;
         char *args[] = {file, NULL};
@@ -997,7 +997,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 }
 
 int main () {
-    struct CreateFilesResult *cfr = create_files(12312365, "using System;\nclass Program\n{\n    static void Main()\n    {\n        string input = Console.ReadLine();\n        double number = Convert.ToDouble(input);\n        double square = number * number;\n        Console.WriteLine($\"{square}\");\n    }\n}", "C# (Mono 6.8)", 0);
+    struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\nusing namespace std;\nint main() {\n	long long a;\n	cin >> a;\n	cout << a * a;\n}", cpp, 0);
     printf(
     "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
     cfr->status,
@@ -1011,7 +1011,7 @@ int main () {
     result->cpu_time, 
     result->physical_memory
     );*/
-    struct DebugResult *result = debug(12312365, 12, cs, "12", 0);
+    struct DebugResult *result = debug(12312365, 12, cpp, "12", 0);
 
     printf(
         "DebugResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\ndescription: %s\noutput: %s", 
