@@ -161,7 +161,7 @@ void signal_handler(int signum) {
             waitpid(child_pid, &status, 0);
 
             if (!WIFSIGNALED(status)) { //статус выхода без сигнала - рантайм
-
+                printf("test");
                 create_all_files(0, 0, 0, 0);
                 exit(4);
 

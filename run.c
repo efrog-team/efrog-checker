@@ -134,8 +134,12 @@ int main(int argc, char **argv) {
     signal(SIGALRM, handle_timeout);
     alarm(atoi(getenv("REAL_TIME_LIMIT"))); //just_time limit
 
+    if(setuid(65534) < 0) { //failed to set user-nobody
+        exit(6); 
+    }
+
     child_pid = fork();
-    
+
     if (child_pid == 0) {
 
 

@@ -923,25 +923,25 @@ int main() {
     DEBUG = 1;
     
     //struct CreateFilesResult *cfr = create_files(12312365, "using System;\nclass Program\n{\nstatic void Main()\n{\nConsole.WriteLine(\"Hello, Linux from C#!\");\n}\n}", "C# (Mono 6.8)");
-    //struct CreateFilesResult *cfr = create_files(12312365, "const Console = require(\"efrog\").Console;\nConsole.write(Number(Console.readAll()) ** 2);", "Node.js (20.x)");
-    //struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}", "C++ 17 (g++ 11.2)");
+    //struct CreateFilesResult *cfr = create_files(12312365, "console.log(124);", "Node.js (20.x)");
+    struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}", "C++ 17 (g++ 11.2)");
     //struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\n}", "C 17 (gcc 11.2)");
     printf(
     "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
     cfr->status,
     cfr->description);
 
-    //struct TestResult *result = check_test_case(12312365, 12, "C++ 17 (g++ 11.2)", "1 2", "3", 1, 256);
+    struct TestResult *result = check_test_case(12312365, 12, "Node.js (20.x)", "12", "144", 1, 1024);
     //struct DebugResult *result = debug(12312365, 12, "Python 3 (3.10)", "99\n98");
     //delete_files(12312365);
 
-    /*printf(
+    printf(
         "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\nVM: %dKB", 
         result->status, 
         result->time, 
         result->cpu_time, 
         result->physical_memory,
-        result->virtual_memory);*/
+        result->virtual_memory);
     
     // printf(
     //     "DebugResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\ndescription: %s\noutput: %s", 

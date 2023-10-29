@@ -546,7 +546,6 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     } else if (strcmp(language, js) == 0) { //js
 
         sprintf(user_code_path, "%s/index.js", cf_id_path);
-
         char *file = "/usr/bin/node";
         char *args[] = {file, user_code_path, NULL};
 
@@ -833,7 +832,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     } else if (strcmp(language, js) == 0) { //js
 
         sprintf(user_code_path, "%s/index.js", cf_id_path);
-
+        printf("%s", user_code_path);
         char *file = "/usr/bin/node";
         char *args[] = {file, user_code_path, NULL};
 
@@ -882,7 +881,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     /*---------------------------------------------------*/
     } else if (strcmp(language, cs) == 0) { //cs
 
-        sprintf(user_code_path, "%s/Program", cf_id_path); // Mono .cs -> .exe compilation
+        sprintf(user_code_path, "%s/Program.exe", cf_id_path); // Mono .cs -> .exe compilation
 
         char *file = "/usr/bin/mono";
         char *args[] = {file, user_code_path, NULL};
@@ -997,31 +996,33 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 }
 
 int main () {
-    struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\nusing namespace std;\nint main() {\n	long long a;\n	cin >> a;\n	cout << a * a;\n}", cpp, 0);
-    printf(
-    "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
-    cfr->status,
-    cfr->description);
+    // struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}", cpp, 1);
+    // //struct CreateFilesResult *cfr = create_files(12312365, "console.log(12);", js, 0);
+    // printf(
+    // "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
+    // cfr->status,
+    // cfr->description);
 
-    /*struct TestResult *result = check_test_case(12312365, 12, cs, "12", "144", 1, 20, 1);
+    struct TestResult *result = check_test_case(12312365, 12, cpp, "1\n12", "144", 1, 90, 1);
     printf(
     "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
     result->status, 
     result->time, 
     result->cpu_time, 
     result->physical_memory
-    );*/
-    struct DebugResult *result = debug(12312365, 12, cpp, "12", 0);
+    );
 
-    printf(
+    //struct DebugResult *result = debug(12312365, 12, js, "12", 0);
+
+    /*printf(
         "DebugResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\ndescription: %s\noutput: %s", 
         result->status, 
         result->time, 
         result->cpu_time, 
         result->physical_memory,
         result->description,
-        result->output);
+        result->output);*/
 
-    delete_files(12312365, 0);
+    //delete_files(12312365, 0);
 }
 
