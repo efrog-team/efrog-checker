@@ -18,7 +18,10 @@
 #include <linux/bpf.h>
 #include <sys/syscall.h>
 
-int DEBUG = 0;
+#define GiB (1024L * 1024L * 1024L)
+
+struct rlimit VMlimit = {GiB * 4, GiB * 4}; //Global virtual memory limit
+struct rlimit SLimit = {GiB, GiB}; //Global stack memory limit
 
 pid_t child_pid;
 
@@ -66,17 +69,15 @@ int get_diff_timespec_round(struct timespec start, struct timespec end) {
 
 
 int status;
-long VmPeak = 0;
 struct rusage usage;
 struct timespec start, end;
 struct timespec start_stop, end_stop;
 
 FILE *file_time;
 FILE *file_cpu_time;
-FILE *file_virtual_memory;
 FILE *file_physical_memory;
 
-void create_all_files(int time, int cpu_time, long virtual_memory, int physical_memory) { 
+void create_all_files(int time, int cpu_time, int physical_memory) { 
 
     file_time = fopen(getenv("TESTPATH_TIME"), "w");
 
@@ -100,17 +101,6 @@ void create_all_files(int time, int cpu_time, long virtual_memory, int physical_
     fprintf(file_cpu_time, "%d", cpu_time);
     fclose(file_cpu_time);
 
-    file_virtual_memory = fopen(getenv("TESTPATH_VIRTUAL_MEMORY"), "w");
-
-    if (file_virtual_memory == NULL) {
-
-        exit(6);
-        
-    }
-
-    fprintf(file_virtual_memory, "%ld", virtual_memory);
-    fclose(file_virtual_memory);
-
     file_physical_memory = fopen(getenv("TESTPATH_PHYSICAL_MEMORY"), "w");
 
     if (file_physical_memory == NULL) {
@@ -123,93 +113,7 @@ void create_all_files(int time, int cpu_time, long virtual_memory, int physical_
     fclose(file_physical_memory);
 }
 
-void signal_handler(int signum) {
-
-    clock_gettime(CLOCK_MONOTONIC_RAW, &start_stop);
-
-    char filename[256];
-    snprintf(filename, sizeof(filename), "/proc/%d/status", child_pid);
-
-    FILE *fp = fopen(filename, "r");
-    
-    if (fp == NULL) {
-
-        clock_gettime(CLOCK_MONOTONIC_RAW, &end);
-
-        if (strcmp(getenv("LANGUAGE"), "Python 3 (3.10)") == 0) {
-            FILE *ferr = fopen(getenv("TESTPATH_STDERR"), "r");
-
-            char line[1000];
-            int memoryerror = 0;
-            while (fgets(line, sizeof(line), ferr) != NULL) {
-                if (strstr(line, "MemoryError") != NULL) {
-                    memoryerror = 1;
-                    break;
-                }
-            }
-
-            fclose(ferr);
-
-            if (!memoryerror) {
-
-                create_all_files(0, 0, 0, 0);
-                exit(4);
-
-            }
-        } else {
-
-            waitpid(child_pid, &status, 0);
-
-            if (!WIFSIGNALED(status)) { //статус выхода без сигнала - рантайм
-
-                create_all_files(0, 0, 0, 0);
-                exit(4);
-
-            }
-
-        }
-
-        getrusage(RUSAGE_CHILDREN, &usage);
-
-        int cpu_time = (int)ceil(usage.ru_utime.tv_sec * 1000 + usage.ru_utime.tv_usec / 1000);
-
-        if (cpu_time == 0) {
-
-            cpu_time = (int)ceil(usage.ru_stime.tv_sec * 1000 + usage.ru_stime.tv_usec / 1000);
-
-        }
-
-        if (cpu_time == 0) { //getrusage returns 0 if time is very small (pr < 1ms)
-
-            cpu_time = 1;
-
-        }
-        create_all_files(get_diff_timespec_up(start, end), cpu_time, atoi(getenv("VIRTUAL_MEMORY_LIMIT")) * 1024, usage.ru_maxrss);
-        exit(3);
-    }
-
-    char line[256];
-    while (fgets(line, sizeof(line), fp)) {
-        if (strstr(line, "VmPeak:")) {
-            if (sscanf(line, "VmPeak: %ld kB", &VmPeak) == 1) {
-                break;
-            }
-        }
-    }
-
-    fclose(fp);
-
-    signal(SIGCHLD, SIG_DFL);
-
-    kill(child_pid, SIGCONT);
-
-    clock_gettime(CLOCK_MONOTONIC_RAW, &end_stop);
-    
-}
-
 void handle_timeout(int signum) {
-
-    signal_handler(0); // to parse VmPeak
 
     kill(child_pid, 9);
     waitpid(child_pid, NULL, 0);
@@ -218,40 +122,34 @@ void handle_timeout(int signum) {
 
     long cpu_time = usage.ru_utime.tv_sec * 1000 + usage.ru_utime.tv_usec / 1000;
 
-    create_all_files(atoi(getenv("REAL_TIME_LIMIT")) * 1000, cpu_time, VmPeak, usage.ru_maxrss);
+    create_all_files(atoi(getenv("REAL_TIME_LIMIT")) * 1000, cpu_time, usage.ru_maxrss);
 
     exit(2); //time limit
 
 }
 
+
 int main(int argc, char **argv) {
-
+    
     signal(SIGALRM, handle_timeout);
-
-    alarm(atoi(getenv("REAL_TIME_LIMIT")));
-
+    alarm(atoi(getenv("REAL_TIME_LIMIT"))); //just_time limit
 
     child_pid = fork();
-    struct rlimit limit = {atoi(getenv("VIRTUAL_MEMORY_LIMIT")) * 1024 * 1024, atoi(getenv("VIRTUAL_MEMORY_LIMIT")) * 1024 * 1024};
-    struct rlimit rl;
-    rl.rlim_cur = 1024 * 1024 * 1024;
-    /*prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
-    prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog);*/
+    
     if (child_pid == 0) {
 
 
         /*-------------------------------child process-------------------------------*/
         
-        setrlimit(RLIMIT_AS, &limit);
-        setrlimit(RLIMIT_STACK, &rl);
+        setrlimit(RLIMIT_AS, &VMlimit); //Virtual memory
+        setrlimit(RLIMIT_STACK, &SLimit); //stack memory
 
-        execv(argv[0], argv);
+        execv(argv[0], argv); //execute user_program
 
     } else if (child_pid > 0) {
 
         /*-------------------------------parent process-------------------------------*/
         
-        signal(SIGCHLD, signal_handler);
 
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 
@@ -259,20 +157,20 @@ int main(int argc, char **argv) {
 
         clock_gettime(CLOCK_MONOTONIC_RAW, &end);
 
-        alarm(0);
+        alarm(0); //off lust_time limit
 
         getrusage(RUSAGE_CHILDREN, &usage);
 
         if (!WIFEXITED(status)) {
-            
-            create_all_files(0, 0, 0, 0);
+
+            create_all_files(0, 0, 0);
             exit(6); //server error
 
         }
 
-        if (WEXITSTATUS(status) != 0) {
+        if (WEXITSTATUS(status) != 0) { //runtime error
             
-            create_all_files(0, 0, 0, 0);
+            create_all_files(0, 0, 0);
             exit(4); //runtime error
 
         }
@@ -293,7 +191,7 @@ int main(int argc, char **argv) {
 
         }
 
-        create_all_files(time, cpu_time, VmPeak, usage.ru_maxrss);
+        create_all_files(time, cpu_time, usage.ru_maxrss);
 
         exit(0);
 
@@ -302,4 +200,5 @@ int main(int argc, char **argv) {
         exit(6); //server error
         
     }
+
 }

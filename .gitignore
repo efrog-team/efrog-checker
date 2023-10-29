@@ -1,3 +1,6 @@
 main
 run
 run.sh
+exec
+deletefiles
+createfiles

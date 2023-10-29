@@ -172,7 +172,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
         fprintf(file_code_main, "#include <signal.h>\n#include <stdlib.h>\nvoid segfhand(int sig) {\n    exit(1);\n}\nvoid __attribute__((constructor)) ctor() {\n    signal(SIGSEGV, segfhand);\n}\nvoid __attribute__((destructor)) dtor() {\n    kill(getpid(), SIGSTOP);\n}\n%s", code);
         fclose(file_code_main);
 
-        char compile_command[40 + 2 * code_path_length]; //g++-11 -static -s main.cpp -o main len : 23 (26 including -lm) +  2 * code_path_length + 5 ( 2>&1)
+        char compile_command[40 + 2 * code_path_length]; //g++-11 -static -s main.cpp -o main len : 23 (26 including -lm) +  2 * code_path_length + 5 ( 2>&1 )
         sprintf(compile_command, cpp ? "g++-11 -static -s %s 2>&1 -o %s/%d" : "gcc-11 -static -s %s 2>&1 -lm -o %s/%d", code_path_main, path, submission_id); 
 
         FILE *ferr = popen(compile_command, "r");
@@ -193,6 +193,53 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
 
             if (DEBUG) printf("failed to compile (C or C++)\n");
+
+            result->status = 5;
+            result->description = cerror;
+
+            return result;
+        }
+
+    } else if (language == "C# (Mono 6.8)") {
+
+
+        char code_path_main[1000];
+        sprintf(code_path_main, "%s/%d.cs", path, submission_id);
+
+        FILE *file_code_main;
+        file_code_main = fopen(code_path_main, "w");
+
+        if (file_code_main == NULL) {
+
+            if(DEBUG) printf("file_code_main = NULL\n");
+            return result;
+
+        }
+
+        fprintf(file_code_main, "%s", code);
+        fclose(file_code_main);
+
+        char compile_command[2000];
+        sprintf(compile_command, "mcs %s 2>&1", code_path_main);
+
+        FILE *ferr = popen(compile_command, "r");
+
+        char cerror_buffer[1000] = "";
+        char cerror[10000] = "";
+
+        while (fgets(cerror_buffer, sizeof(cerror_buffer), ferr) != NULL) {
+
+            strcat(cerror, cerror_buffer);
+            strcat(cerror, "\n");
+
+        }
+
+        strcat(cerror, "\0");
+
+        if (WEXITSTATUS(pclose(ferr)) != 0) {
+
+
+            if (DEBUG) printf("failed to compile (C#)\n");
 
             result->status = 5;
             result->description = cerror;
@@ -875,26 +922,26 @@ int main() {
 
     DEBUG = 1;
     
-    struct CreateFilesResult *cfr = create_files(12312365, "print(1)\nprint(2)\nprint(3)\nprint(4)", "Python 3 (3.10)");
-    // struct CreateFilesResult *cfr = create_files(12312365, "const Console = require(\"efrog\").Console;\nConsole.write(Number(Console.readAll()) ** 2);", "Node.js (20.x)");
+    //struct CreateFilesResult *cfr = create_files(12312365, "using System;\nclass Program\n{\nstatic void Main()\n{\nConsole.WriteLine(\"Hello, Linux from C#!\");\n}\n}", "C# (Mono 6.8)");
+    //struct CreateFilesResult *cfr = create_files(12312365, "const Console = require(\"efrog\").Console;\nConsole.write(Number(Console.readAll()) ** 2);", "Node.js (20.x)");
     //struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}", "C++ 17 (g++ 11.2)");
     //struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\n}", "C 17 (gcc 11.2)");
-    /*printf(
+    printf(
     "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
     cfr->status,
-    cfr->description);*/
+    cfr->description);
 
-    //struct TestResult *result = check_test_case(12312365, 12, "Python 3 (3.10)", "12", "1\r\n2\r\n3\r\n4", 4, 2000);
-    struct DebugResult *result = debug(12312365, 12, "Python 3 (3.10)", "12");
-    delete_files(12312365);
+    //struct TestResult *result = check_test_case(12312365, 12, "C++ 17 (g++ 11.2)", "1 2", "3", 1, 256);
+    //struct DebugResult *result = debug(12312365, 12, "Python 3 (3.10)", "99\n98");
+    //delete_files(12312365);
 
-    printf(
+    /*printf(
         "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\nVM: %dKB", 
         result->status, 
         result->time, 
         result->cpu_time, 
         result->physical_memory,
-        result->virtual_memory);
+        result->virtual_memory);*/
     
     // printf(
     //     "DebugResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\ndescription: %s\noutput: %s", 
@@ -908,3 +955,12 @@ int main() {
     return 0;
 
 }
+
+
+
+
+
+
+    
+    
+    
