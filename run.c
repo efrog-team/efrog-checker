@@ -133,11 +133,12 @@ int main(int argc, char **argv) {
 
     child_pid = fork();
 
-    struct rlimit VMlimit = {2L * 1024 * 1024 * 1024, 2L * 1024 * 1024 * 1024}; //Global virtual memory limit
+    long int VM = 2L * GiB;
+
+    struct rlimit VMlimit = {VM, VM}; //Global virtual memory limit
     struct rlimit SLimit; //Global stack memory limit
 
-    SLimit.rlim_cur = 1024 * 1024 * 1024;
-
+    SLimit.rlim_cur = GiB;
     if (child_pid == 0) {
 
 
@@ -146,10 +147,13 @@ int main(int argc, char **argv) {
         setrlimit(RLIMIT_AS, &VMlimit); //Virtual memory
         setrlimit(RLIMIT_STACK, &SLimit); //stack memory
 
-        if(setuid(65534) < 0) { //failed to set user-nobody
+        /*if (chroot(getenv("ROOT_DIR")) < 0) { //failed to set root dir as checker_files/(S?D)_id/program
+            exit(6); 
+        }*/
+
+        if (setuid(65534) < 0) { //failed to set user-nobody
             exit(6); 
         }
-
 
         execv(argv[0], argv); //execute user_program
 

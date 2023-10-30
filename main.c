@@ -49,10 +49,19 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
     sprintf(cf_id_path, submission ? "checker_files/S_%d" : "checker_files/D_%d", submission_id);
 
-
     if (mkdir(cf_id_path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) != 0) { //error: failed to create a dir
 
-        printf("ERROR : Failed to create a dir\n");
+        printf("ERROR : Failed to create a dir 1\n");
+        return result;
+
+    } 
+
+    char* cf_id_folder_path = (char*)malloc(MP_len);
+    sprintf(cf_id_folder_path, "%s/program", cf_id_path);
+
+    if (mkdir(cf_id_folder_path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) != 0) { //error: failed to create a dir
+
+        printf("ERROR : Failed to create a dir 1\n");
         return result;
 
     } 
@@ -62,7 +71,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
     /*---------------------------------------------------*/
     if (strcmp(language, python) == 0) { //python
 
-        sprintf(user_code_path, "%s/main.py", cf_id_path);
+        sprintf(user_code_path, "%s/main.py", cf_id_folder_path);
 
         user_code_file = fopen(user_code_path, "w");
         if (user_code_file == NULL) { // ERROR : user_code_file is not created
@@ -76,7 +85,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
     /*---------------------------------------------------*/
     } else if (strcmp(language, js) == 0) { //js
 
-        sprintf(user_code_path, "%s/index.js", cf_id_path);
+        sprintf(user_code_path, "%s/index.js", cf_id_folder_path);
 
         user_code_file = fopen(user_code_path, "w");
         if (user_code_file == NULL) { // ERROR : user_code_file is not created
@@ -90,7 +99,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
     /*---------------------------------------------------*/
     } else if (strcmp(language, cpp) == 0) { //cpp
 
-        sprintf(user_code_path, "%s/main.cpp", cf_id_path);
+        sprintf(user_code_path, "%s/main.cpp", cf_id_folder_path);
 
         user_code_file = fopen(user_code_path, "w");
         if (user_code_file == NULL) { // ERROR : user_code_file is not created
@@ -134,7 +143,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
     /*---------------------------------------------------*/
     } else if (strcmp(language, c) == 0) { //c
 
-        sprintf(user_code_path, "%s/main.c", cf_id_path);
+        sprintf(user_code_path, "%s/main.c", cf_id_folder_path);
 
         user_code_file = fopen(user_code_path, "w");
         if (user_code_file == NULL) { // ERROR : user_code_file is not created
@@ -178,7 +187,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
     /*---------------------------------------------------*/
     } else if (strcmp(language, cs) == 0) { //cs
 
-        sprintf(user_code_path, "%s/Program.cs", cf_id_path);
+        sprintf(user_code_path, "%s/Program.cs", cf_id_folder_path);
 
         user_code_file = fopen(user_code_path, "w");
         if (user_code_file == NULL) { // ERROR : user_code_file is not created
@@ -275,6 +284,9 @@ int execute(
     char* cf_id_path = (char*)malloc(MP_len); //checker files path
     sprintf(cf_id_path, submission ? "checker_files/S_%d" : "checker_files/D_%d", submission_id);
 
+    char* root_dir = (char*)malloc(MP_len);//root dir
+    sprintf(root_dir, "%s/program", cf_id_path); //root dir
+
     sprintf(testpath_input, "%s/%d_input.txt",  cf_id_path, test_case_id);
     sprintf(testpath_output, "%s/%d_output.txt", cf_id_path, test_case_id);
     sprintf(testpath_error, "%s/%d_stderr.txt", cf_id_path, test_case_id);
@@ -292,6 +304,7 @@ int execute(
     char *real_time_limit_env = (char*)malloc(MP_len);
     //char virtual_memory_limit_env[21 + getbytes(virtual_memory_limit)]; 
     char *testpath_stderr_env = (char*)malloc(MP_len);
+    char *root_dir_env = (char*)malloc(MP_len);
 
     sprintf(language_env, "LANGUAGE=%s", language);
     sprintf(testpath_time_env, "TESTPATH_TIME=%s", testpath_time);
@@ -301,6 +314,7 @@ int execute(
     sprintf(real_time_limit_env, "REAL_TIME_LIMIT=%d", real_time_limit);
     //sprintf(virtual_memory_limit_env, "VIRTUAL_MEMORY_LIMIT=%d", virtual_memory_limit);
     sprintf(testpath_stderr_env, "TESTPATH_STDERR=%s", testpath_error);
+    sprintf(root_dir_env, "ROOT_DIR=%s", root_dir);
 
     int input_fd = open(testpath_input, O_RDONLY); 
 
@@ -340,6 +354,7 @@ int execute(
         testpath_physical_memory_env,
         real_time_limit_env,
         testpath_stderr_env,
+        root_dir_env,
         NULL
 
     };
@@ -526,9 +541,12 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     char* user_code_path = (char*)malloc(MP_len); //user code path in checker_files dir
     int exec_status;
 
+    char* cf_id_folder_path = (char*)malloc(MP_len);
+    sprintf(cf_id_folder_path, "%s/%d", cf_id_path, submission_id);
+
     if (strcmp(language, python) == 0) { //python
 
-        sprintf(user_code_path, "%s/main.py", cf_id_path);
+        sprintf(user_code_path, "%s/main.py", cf_id_folder_path);
 
         char *file = "/usr/bin/python3";
         char *args[] = {file, user_code_path, NULL};
@@ -545,7 +563,7 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     /*---------------------------------------------------*/
     } else if (strcmp(language, js) == 0) { //js
 
-        sprintf(user_code_path, "%s/index.js", cf_id_path);
+        sprintf(user_code_path, "%s/index.js", cf_id_folder_path);
         char *file = "/usr/bin/node";
         char *args[] = {file, user_code_path, NULL};
 
@@ -561,7 +579,7 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     /*---------------------------------------------------*/
     } else if (strcmp(language, cpp) == 0) { //cpp
 
-        sprintf(user_code_path, "%s/main", cf_id_path);
+        sprintf(user_code_path, "%s/main", cf_id_folder_path);
 
         char *file = user_code_path;
         char *args[] = {file, NULL};
@@ -577,7 +595,7 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     /*---------------------------------------------------*/
     } else if (strcmp(language, c) == 0) { //c
 
-        sprintf(user_code_path, "%s/main", cf_id_path);
+        sprintf(user_code_path, "%s/main", cf_id_folder_path);
 
         char *file = user_code_path;
         char *args[] = {file, NULL};
@@ -594,7 +612,7 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     /*---------------------------------------------------*/
     } else if (strcmp(language, cs) == 0) { //cs
 
-        sprintf(user_code_path, "%s/Program.exe", cf_id_path); // Mono .cs -> .exe compilation
+        sprintf(user_code_path, "%s/Program.exe", cf_id_folder_path); // Mono .cs -> .exe compilation
 
         char *file = "/usr/bin/mono";
         char *args[] = {file, user_code_path, NULL};
@@ -812,9 +830,12 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     char* user_code_path = (char*)malloc(MP_len); //user code path in checker_files dir
     int exec_status;
 
+    char* cf_id_folder_path = (char*)malloc(MP_len);
+    sprintf(cf_id_folder_path, "%s/program", cf_id_path);
+
     if (strcmp(language, python) == 0) { //python
 
-        sprintf(user_code_path, "%s/main.py", cf_id_path);
+        sprintf(user_code_path, "%s/main.py", cf_id_folder_path);
 
         char *file = "/usr/bin/python3";
         char *args[] = {file, user_code_path, NULL};
@@ -831,7 +852,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     /*---------------------------------------------------*/
     } else if (strcmp(language, js) == 0) { //js
 
-        sprintf(user_code_path, "%s/index.js", cf_id_path);
+        sprintf(user_code_path, "%s/index.js", cf_id_folder_path);
         char *file = "/usr/bin/node";
         char *args[] = {file, user_code_path, NULL};
 
@@ -847,7 +868,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     /*---------------------------------------------------*/
     } else if (strcmp(language, cpp) == 0) { //cpp
 
-        sprintf(user_code_path, "%s/main", cf_id_path);
+        sprintf(user_code_path, "%s/main", cf_id_folder_path);
 
         char *file = user_code_path;
         char *args[] = {file, NULL};
@@ -863,7 +884,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     /*---------------------------------------------------*/
     } else if (strcmp(language, c) == 0) { //c
 
-        sprintf(user_code_path, "%s/main", cf_id_path);
+        sprintf(user_code_path, "%s/main", cf_id_folder_path);
 
         char *file = user_code_path;
         char *args[] = {file, NULL};
@@ -880,7 +901,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     /*---------------------------------------------------*/
     } else if (strcmp(language, cs) == 0) { //cs
 
-        sprintf(user_code_path, "%s/Program.exe", cf_id_path); // Mono .cs -> .exe compilation
+        sprintf(user_code_path, "%s/Program.exe", cf_id_folder_path); // Mono .cs -> .exe compilation
 
         char *file = "/usr/bin/mono";
         char *args[] = {file, user_code_path, NULL};
@@ -995,6 +1016,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 }
 
 int main () {
+    delete_files(12312365, 1);
     // struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}", cpp, 1);
     struct CreateFilesResult *cfr = create_files(12312365, "console.log(12);", js, 1);
     // struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\nprintf(\"%d\", a * a);\n}", "C 17 (gcc 11.2)", 1);
@@ -1022,6 +1044,6 @@ int main () {
         result->description,
         result->output);
 
-    //delete_files(12312365, 0);
+    
 }
 
