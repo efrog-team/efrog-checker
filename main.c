@@ -125,7 +125,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
         char *compile_command = (char*)malloc(MP_len * 2);
 
-        sprintf(compile_command, "g++-11 -static -s %s 2>&1 -o %s/main", user_code_path, cf_id_path);
+        sprintf(compile_command, "g++-11 -static -s %s 2>&1 -o %s/main", user_code_path, cf_id_folder_path);
 
         FILE *ferr = popen(compile_command, "r");
 
@@ -169,7 +169,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
         char *compile_command = (char*)malloc(MP_len * 2);
 
-        sprintf(compile_command, "gcc-11 -static -s %s 2>&1 -o %s/main", user_code_path, cf_id_path);
+        sprintf(compile_command, "gcc-11 -static -s %s 2>&1 -o %s/main", user_code_path, cf_id_folder_path);
 
         FILE *ferr = popen(compile_command, "r");
 
