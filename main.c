@@ -506,7 +506,7 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     char* testpath_solution = (char*)malloc(MP_len); //..._solution.txt
 
     char* solution_dir = (char*)malloc(MP_len); //...solution/id_solution.txt
-    sprintf(solution_dir, "%s/solution", cf_id_path);
+    sprintf(solution_dir, "%s/solutions", cf_id_path);
 
     sprintf(testpath_input, "%s/%d_input.txt", cf_id_path, test_case_id);
     sprintf(testpath_output, "%s/%d_output.txt", cf_id_path, test_case_id);
