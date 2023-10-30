@@ -495,9 +495,19 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     char* testpath_output = (char*)malloc(max_output_size); //..._output.txt
     char* testpath_solution = (char*)malloc(max_output_size); //..._solution.txt
 
+    char* solution_dir = (char*)malloc(max_output_size); //...solution/id_solution.txt
+    sprintf(solution_dir, "%s/solution", cf_id_path);
+
+    if (mkdir(solution_dir, S_IRWXU) != 0) { //error: failed to create a dir
+
+        printf("ERROR : Failed to create a dir 3\n");
+        return result;
+
+    } 
+
     sprintf(testpath_input, "%s/%d_input.txt", cf_id_path, test_case_id);
     sprintf(testpath_output, "%s/%d_output.txt", cf_id_path, test_case_id);
-    sprintf(testpath_solution, "%s/%d_solution.txt", cf_id_path, test_case_id);
+    sprintf(testpath_solution, "%s/%d_solution.txt", solution_dir, test_case_id);
 
     FILE *file_output;
     FILE *file_input;
@@ -542,7 +552,7 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     int exec_status;
 
     char* cf_id_folder_path = (char*)malloc(MP_len);
-    sprintf(cf_id_folder_path, "%s/%d", cf_id_path, submission_id);
+    sprintf(cf_id_folder_path, "%s/program", cf_id_path);
 
     if (strcmp(language, python) == 0) { //python
 
@@ -1016,33 +1026,34 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 }
 
 int main () {
-    delete_files(12312365, 1);
+    //delete_files(12312365, 1);
     // struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}", cpp, 1);
-    struct CreateFilesResult *cfr = create_files(12312365, "const ef = require(\"efrog\").Console;\nlet a = ef.inputLine(); // to read line\nconsole.log(a); //to output line", js, 1);
+    struct CreateFilesResult *cfr = create_files(12312365, "console.log(12)", js, 1);
     // struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\nprintf(\"%d\", a * a);\n}", "C 17 (gcc 11.2)", 1);
     // printf(
     // "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
     // cfr->status,
     // cfr->description);
     // struct TestResult *result = check_test_case(12312365, 12, c, "12", "144", 1, 90, 1);
-    // printf(
-    // "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
-    // result->status, 
-    // result->time, 
-    // result->cpu_time, 
-    // result->physical_memory
-    // );
 
-    struct DebugResult *result = debug(12312365, 12, js, "12", 1);
+
+    struct TestResult *result = check_test_case(12312365, 12, js, "12", "12", 1, 100, 1);
 
     printf(
-        "DebugResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\ndescription: %s\noutput: %s", 
-        result->status, 
-        result->time, 
-        result->cpu_time, 
-        result->physical_memory,
-        result->description,
-        result->output);
+    "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
+    result->status, 
+    result->time, 
+    result->cpu_time, 
+    result->physical_memory
+    );
+    // printf(
+    //     "DebugResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\ndescription: %s\noutput: %s", 
+    //     result->status, 
+    //     result->time, 
+    //     result->cpu_time, 
+    //     result->physical_memory,
+    //     result->description,
+    //     result->output);
 
     
 }
