@@ -59,7 +59,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
     char* solution_dir = (char*)malloc(MP_len); //...solution/id_solution.txt
     sprintf(solution_dir, "%s/solution", cf_id_path);
 
-    if (mkdir(solution_dir, S_IRWXU) != 0) { //error: failed to create a dir
+    if (mkdir(solution_dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOT) != 0) { //error: failed to create a dir
 
         printf("ERROR : Failed to create a dir 3\n");
         return result;
