@@ -56,6 +56,16 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
     } 
 
+    char* solution_dir = (char*)malloc(MP_len); //...solution/id_solution.txt
+    sprintf(solution_dir, "%s/solution", cf_id_path);
+
+    if (mkdir(solution_dir, S_IRWXU) != 0) { //error: failed to create a dir
+
+        printf("ERROR : Failed to create a dir 3\n");
+        return result;
+
+    } 
+
     char* cf_id_folder_path = (char*)malloc(MP_len);
     sprintf(cf_id_folder_path, "%s/program", cf_id_path);
 
@@ -491,19 +501,12 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
 
     sprintf(cf_id_path, submission ? "checker_files/S_%d" : "checker_files/D_%d", submission_id);
 
-    char* testpath_input = (char*)malloc(max_output_size); //..._input.txt 
-    char* testpath_output = (char*)malloc(max_output_size); //..._output.txt
-    char* testpath_solution = (char*)malloc(max_output_size); //..._solution.txt
+    char* testpath_input = (char*)malloc(MP_len); //..._input.txt 
+    char* testpath_output = (char*)malloc(MP_len); //..._output.txt
+    char* testpath_solution = (char*)malloc(MP_len); //..._solution.txt
 
-    char* solution_dir = (char*)malloc(max_output_size); //...solution/id_solution.txt
+    char* solution_dir = (char*)malloc(MP_len); //...solution/id_solution.txt
     sprintf(solution_dir, "%s/solution", cf_id_path);
-
-    if (mkdir(solution_dir, S_IRWXU) != 0) { //error: failed to create a dir
-
-        printf("ERROR : Failed to create a dir 3\n");
-        return result;
-
-    } 
 
     sprintf(testpath_input, "%s/%d_input.txt", cf_id_path, test_case_id);
     sprintf(testpath_output, "%s/%d_output.txt", cf_id_path, test_case_id);
