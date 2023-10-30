@@ -17,8 +17,10 @@
 #include <sys/prctl.h>
 #include <linux/bpf.h>
 #include <sys/syscall.h>
+#include <sys/stat.h>
 
 #define GiB (1024 * 1024 * 1024)
+#define NOBODY 65534
 
 pid_t child_pid;
 
@@ -139,8 +141,8 @@ int main(int argc, char **argv) {
     struct rlimit SLimit; //Global stack memory limit
 
     SLimit.rlim_cur = GiB;
-    if (child_pid == 0) {
 
+    if (child_pid == 0) {
 
         /*-------------------------------child process-------------------------------*/
         
@@ -151,7 +153,7 @@ int main(int argc, char **argv) {
             exit(6); 
         }*/
 
-        if (setuid(65534) < 0) { //failed to set user-nobody
+        if (setuid(NOBODY) < 0) { //failed to set user-nobody
             exit(6); 
         }
 

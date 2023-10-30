@@ -14,6 +14,7 @@
 #include <sys/resource.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 #define GiB (1024L * 1024L * 1024L)
 #define MiB (1024L * 1024L)
@@ -49,7 +50,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
     sprintf(cf_id_path, submission ? "checker_files/S_%d" : "checker_files/D_%d", submission_id);
 
-    if (mkdir(cf_id_path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) != 0) { //error: failed to create a dir
+    if (mkdir(cf_id_path, S_IRWXU) != 0) { //error: failed to create a dir
 
         printf("ERROR : Failed to create a dir 1\n");
         return result;
@@ -59,7 +60,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
     char* cf_id_folder_path = (char*)malloc(MP_len);
     sprintf(cf_id_folder_path, "%s/program", cf_id_path);
 
-    if (mkdir(cf_id_folder_path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) != 0) { //error: failed to create a dir
+    if (mkdir(cf_id_folder_path, S_IRWXU) != 0) { //error: failed to create a dir
 
         printf("ERROR : Failed to create a dir 1\n");
         return result;
@@ -1018,7 +1019,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 int main () {
     delete_files(12312365, 1);
     // struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}", cpp, 1);
-    struct CreateFilesResult *cfr = create_files(12312365, "console.log(12);", js, 1);
+    struct CreateFilesResult *cfr = create_files(12312365, "const ef = require(\"efrog\").Console;\nlet a = ef.inputLine(); // to read line\nconsole.log(a); //to output line", js, 1);
     // struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\nprintf(\"%d\", a * a);\n}", "C 17 (gcc 11.2)", 1);
     // printf(
     // "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
