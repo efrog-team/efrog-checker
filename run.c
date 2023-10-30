@@ -20,10 +20,6 @@
 
 #define GiB (1024 * 1024 * 1024)
 
-struct rlimit VMlimit = {GiB * 2, GiB * 2}; //Global virtual memory limit
-
-struct rlimit SLimit = {GiB, GiB}; //Global stack memory limit
-
 pid_t child_pid;
 
 struct timespec time_diff_timespec(struct timespec start, struct timespec end) {
@@ -131,25 +127,29 @@ void handle_timeout(int signum) {
 
 
 int main(int argc, char **argv) {
-    
+
     signal(SIGALRM, handle_timeout);
     alarm(atoi(getenv("REAL_TIME_LIMIT"))); //just_time limit
 
-
-
     child_pid = fork();
+
+    struct rlimit VMlimit = {2L * 1024 * 1024 * 1024, 2L * 1024 * 1024 * 1024}; //Global virtual memory limit
+    struct rlimit SLimit; //Global stack memory limit
+
+    SLimit.rlim_cur = 1024 * 1024 * 1024;
 
     if (child_pid == 0) {
 
 
         /*-------------------------------child process-------------------------------*/
         
+        setrlimit(RLIMIT_AS, &VMlimit); //Virtual memory
+        setrlimit(RLIMIT_STACK, &SLimit); //stack memory
+
         if(setuid(65534) < 0) { //failed to set user-nobody
             exit(6); 
         }
 
-        setrlimit(RLIMIT_AS, &VMlimit); //Virtual memory
-        setrlimit(RLIMIT_STACK, &SLimit); //stack memory
 
         execv(argv[0], argv); //execute user_program
 
