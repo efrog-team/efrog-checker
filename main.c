@@ -832,7 +832,6 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     } else if (strcmp(language, js) == 0) { //js
 
         sprintf(user_code_path, "%s/index.js", cf_id_path);
-        printf("%s", user_code_path);
         char *file = "/usr/bin/node";
         char *args[] = {file, user_code_path, NULL};
 
@@ -997,31 +996,31 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 
 int main () {
     // struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}", cpp, 1);
-    // //struct CreateFilesResult *cfr = create_files(12312365, "console.log(12);", js, 0);
+    struct CreateFilesResult *cfr = create_files(12312365, "console.log(12);", js, 1);
+    // struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\nprintf(\"%d\", a * a);\n}", "C 17 (gcc 11.2)", 1);
     // printf(
     // "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
     // cfr->status,
     // cfr->description);
+    // struct TestResult *result = check_test_case(12312365, 12, c, "12", "144", 1, 90, 1);
+    // printf(
+    // "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
+    // result->status, 
+    // result->time, 
+    // result->cpu_time, 
+    // result->physical_memory
+    // );
 
-    struct TestResult *result = check_test_case(12312365, 12, cpp, "1\n12", "144", 1, 90, 1);
+    struct DebugResult *result = debug(12312365, 12, js, "12", 1);
+
     printf(
-    "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
-    result->status, 
-    result->time, 
-    result->cpu_time, 
-    result->physical_memory
-    );
-
-    //struct DebugResult *result = debug(12312365, 12, js, "12", 0);
-
-    /*printf(
         "DebugResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\ndescription: %s\noutput: %s", 
         result->status, 
         result->time, 
         result->cpu_time, 
         result->physical_memory,
         result->description,
-        result->output);*/
+        result->output);
 
     //delete_files(12312365, 0);
 }

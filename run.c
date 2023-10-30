@@ -18,9 +18,10 @@
 #include <linux/bpf.h>
 #include <sys/syscall.h>
 
-#define GiB (1024L * 1024L * 1024L)
+#define GiB (1024 * 1024 * 1024)
 
-struct rlimit VMlimit = {GiB * 4, GiB * 4}; //Global virtual memory limit
+struct rlimit VMlimit = {GiB * 2, GiB * 2}; //Global virtual memory limit
+
 struct rlimit SLimit = {GiB, GiB}; //Global stack memory limit
 
 pid_t child_pid;
@@ -134,9 +135,7 @@ int main(int argc, char **argv) {
     signal(SIGALRM, handle_timeout);
     alarm(atoi(getenv("REAL_TIME_LIMIT"))); //just_time limit
 
-    if(setuid(65534) < 0) { //failed to set user-nobody
-        exit(6); 
-    }
+
 
     child_pid = fork();
 
@@ -145,6 +144,10 @@ int main(int argc, char **argv) {
 
         /*-------------------------------child process-------------------------------*/
         
+        if(setuid(65534) < 0) { //failed to set user-nobody
+            exit(6); 
+        }
+
         setrlimit(RLIMIT_AS, &VMlimit); //Virtual memory
         setrlimit(RLIMIT_STACK, &SLimit); //stack memory
 
