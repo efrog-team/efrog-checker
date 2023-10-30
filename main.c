@@ -14,7 +14,6 @@
 #include <sys/resource.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <sys/stat.h>
 
 #define GiB (1024L * 1024L * 1024L)
 #define MiB (1024L * 1024L)
@@ -50,7 +49,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
     sprintf(cf_id_path, submission ? "checker_files/S_%d" : "checker_files/D_%d", submission_id);
 
-    if (mkdir(cf_id_path, S_IRWXU) != 0) { //error: failed to create a dir
+    if (mkdir(cf_id_path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) != 0) { //error: failed to create a dir
 
         printf("ERROR : Failed to create a dir 1\n");
         return result;
@@ -60,7 +59,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
     char* cf_id_folder_path = (char*)malloc(MP_len);
     sprintf(cf_id_folder_path, "%s/program", cf_id_path);
 
-    if (mkdir(cf_id_folder_path, S_IRWXU) != 0) { //error: failed to create a dir
+    if (mkdir(cf_id_folder_path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) != 0) { //error: failed to create a dir
 
         printf("ERROR : Failed to create a dir 1\n");
         return result;
