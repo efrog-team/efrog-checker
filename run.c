@@ -22,6 +22,15 @@
 #define GiB (1024 * 1024 * 1024)
 #define NOBODY 65534
 
+#define successful_status 0
+#define wrong_answer_status 1
+#define time_limit_status 2
+#define memory_limit_status 3
+#define runtime_error_status 4
+#define compilation_error_status 5
+#define custom_checker_error_status 6
+#define internal_server_error_status 7
+
 pid_t child_pid;
 
 struct timespec time_diff_timespec(struct timespec start, struct timespec end) {
@@ -82,7 +91,7 @@ void create_all_files(int time, int cpu_time, int physical_memory) {
 
     if (file_time == NULL) {
 
-        exit(6);
+        exit(internal_server_error_status);
         
     }
 
@@ -93,7 +102,7 @@ void create_all_files(int time, int cpu_time, int physical_memory) {
 
     if (file_cpu_time == NULL) {
 
-        exit(6);
+        exit(internal_server_error_status);
         
     }
 
@@ -104,7 +113,7 @@ void create_all_files(int time, int cpu_time, int physical_memory) {
 
     if (file_physical_memory == NULL) {
 
-        exit(6);
+        exit(internal_server_error_status);
         
     }
 
@@ -123,7 +132,7 @@ void handle_timeout(int signum) {
 
     create_all_files(atoi(getenv("REAL_TIME_LIMIT")) * 1000, cpu_time, usage.ru_maxrss);
 
-    exit(2); //time limit
+    exit(time_limit_status); //time limit
 
 }
 
@@ -150,11 +159,11 @@ int main(int argc, char **argv) {
         setrlimit(RLIMIT_STACK, &SLimit); //stack memory
 
         /*if (chroot(getenv("ROOT_DIR")) < 0) { //failed to set root dir as checker_files/(S?D)_id/program
-            exit(6); 
+            exit(internal_server_error_status); 
         }*/
 
         if (setuid(NOBODY) < 0) { //failed to set user-nobody
-            exit(6); 
+            exit(internal_server_error_status); 
         }
 
         execv(argv[0], argv); //execute user_program
@@ -177,14 +186,14 @@ int main(int argc, char **argv) {
         if (!WIFEXITED(status)) {
 
             create_all_files(0, 0, 0);
-            exit(6); //server error
+            exit(internal_server_error_status); //server error
 
         }
 
         if (WEXITSTATUS(status) != 0) { //runtime error
             
             create_all_files(0, 0, 0);
-            exit(4); //runtime error
+            exit(runtime_error_status); //runtime error
 
         }
 
@@ -210,7 +219,7 @@ int main(int argc, char **argv) {
 
     } else {
 
-        exit(6); //server error
+        exit(internal_server_error_status); //server error
         
     }
 

@@ -26,21 +26,44 @@
 #define js "Node.js (20.x)"
 #define c "C 17 (gcc 11.2)"
 
+#define successful_status 0
+#define wrong_answer_status 1
+#define time_limit_status 2
+#define memory_limit_status 3
+#define runtime_error_status 4
+#define compilation_error_status 5
+#define custom_check_error_status 6
+#define internal_server_error_status 7
+
+
 struct CreateFilesResult {
     int status; /*
                 0 - Successful
                 5 - Compilation error
-                6 - Server error 
+                6 - custom_check_error
+                7 - Server error 
                 */
     char *description;
+    char *custom_check_description;
 };
 
 
-struct CreateFilesResult *create_files(int submission_id, char *code, char *language, int submission) { // if submission = 1 S_id else D_id
+struct CreateFilesResult *create_files(
+        int submission_id, 
+        char *code, 
+        char *language, 
+        int submission, 
+        int custom_check, 
+        char *custom_check_language, 
+        char *custom_check_code
+    ) { 
+    /* if submission = 1 S_id else D_id
+       if custom_check є {0; 1} (0 - false, 1 - true)
+    */
 
     struct CreateFilesResult *result = malloc(sizeof(struct CreateFilesResult));
 
-    result->status = 6; //define for server error
+    result->status = internal_server_error_status; //define for server error
     result->description = "";
 
     char* cf_id_path = (char*)malloc(MP_len); //checker files path
@@ -145,7 +168,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
             printf("ERROR : failed to compile C++\n"); 
 
-            result->status = 5;
+            result->status = compilation_error_status;
             result->description = cerror;
 
             return result;
@@ -189,7 +212,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
             printf("ERROR : failed to compile C\n"); 
 
-            result->status = 5;
+            result->status = compilation_error_status;
             result->description = cerror;
 
             return result;
@@ -233,7 +256,7 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
             printf("ERROR : failed to compile cs\n"); 
 
-            result->status = 5;
+            result->status = compilation_error_status;
             result->description = cerror;
 
             return result;
@@ -243,6 +266,192 @@ struct CreateFilesResult *create_files(int submission_id, char *code, char *lang
 
         printf("ERROR : Unknown language\n");
         return result;
+
+    }
+
+    if (custom_check == 1)  {   //true
+
+        char* custom_checker_folder = (char*)malloc(MP_len);
+
+        sprintf(custom_checker_folder, "%s/custom_checker", cf_id_path);
+
+        if (mkdir(custom_checker_folder, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) != 0) { //error: failed to create a dir
+
+            printf("ERROR : Failed to create a dir 4\n");
+            return result;
+
+        } 
+
+        char* custom_checker_path = (char*)malloc(MP_len);
+        FILE* custom_check_file;
+
+        /*---------------------------------------------------*/
+        if (strcmp(custom_check_language, python) == 0) { //python
+
+            sprintf(custom_checker_path, "%s/main.py", custom_checker_folder);
+
+            custom_check_file = fopen(custom_checker_path, "w");
+            if (custom_check_file == NULL) { // ERROR : custom_check_file is not created
+
+                printf("ERROR : custom_check_file is not created\n");
+                return result;
+
+            }
+            fprintf(custom_check_file, "%s", custom_check_code);
+            fclose(custom_check_file);
+        /*---------------------------------------------------*/
+        } else if (strcmp(custom_check_language, js) == 0) { //js
+
+            sprintf(custom_checker_path, "%s/index.js", custom_checker_folder);
+
+            custom_check_file = fopen(custom_checker_path, "w");
+            if (custom_check_file == NULL) { // ERROR : custom_check_file is not created
+
+                printf("ERROR : custom_check_file is not created\n");
+                return result;
+
+            }
+            fprintf(custom_check_file, "%s", custom_check_code);
+            fclose(custom_check_file);
+        /*---------------------------------------------------*/
+        } else if (strcmp(custom_check_language, cpp) == 0) { //cpp
+
+            sprintf(custom_checker_path, "%s/main.cpp", custom_checker_folder);
+
+            custom_check_file = fopen(custom_checker_path, "w");
+            if (custom_check_file == NULL) { // ERROR : custom_check_file is not created
+
+                printf("ERROR : custom_check_file is not created\n");
+                return result;
+
+            }
+            fprintf(custom_check_file, "%s", custom_check_code);
+            fclose(custom_check_file);
+
+            //compilation
+
+            char *compile_command = (char*)malloc(MP_len * 2);
+
+            sprintf(compile_command, "g++-11 -static -s %s 2>&1 -o %s/main", custom_checker_path, custom_checker_folder);
+
+            FILE *ferr = popen(compile_command, "r");
+
+            char cerror_buffer[MP_len];
+            char cerror[MP_len * 10];
+
+            while (fgets(cerror_buffer, sizeof(cerror_buffer), ferr) != NULL) {
+
+                strcat(cerror, cerror_buffer);
+                strcat(cerror, "\n");
+
+            }
+
+            strcat(cerror, "\0");
+
+            if (WEXITSTATUS(pclose(ferr)) != 0) { //ERROR : failed to compile C++
+
+                printf("ERROR : failed to compile C++\n"); 
+
+                result->status = custom_check_error_status;
+                result->custom_check_description = cerror;
+
+                return result;
+            }
+        /*---------------------------------------------------*/
+        } else if (strcmp(custom_check_language, c) == 0) { //c
+
+            sprintf(custom_checker_path, "%s/main.c", custom_checker_folder);
+
+            custom_check_file = fopen(custom_checker_path, "w");
+            if (custom_check_file == NULL) { // ERROR : custom_check_file is not created
+
+                printf("ERROR : custom_check_file is not created\n");
+                return result;
+
+            }
+            fprintf(custom_check_file, "%s", custom_check_code);
+            fclose(custom_check_file);
+
+            //compilation
+
+            char *compile_command = (char*)malloc(MP_len * 2);
+
+            sprintf(compile_command, "gcc-11 -static -s %s 2>&1 -o %s/main", custom_checker_path, custom_checker_folder);
+
+            FILE *ferr = popen(compile_command, "r");
+
+            char cerror_buffer[MP_len];
+            char cerror[MP_len * 10];
+
+            while (fgets(cerror_buffer, sizeof(cerror_buffer), ferr) != NULL) {
+
+                strcat(cerror, cerror_buffer);
+                strcat(cerror, "\n");
+
+            }
+
+            strcat(cerror, "\0");
+
+            if (WEXITSTATUS(pclose(ferr)) != 0) { //ERROR : failed to compile C
+
+                printf("ERROR : failed to compile C\n"); 
+
+                result->status = custom_check_error_status;
+                result->custom_check_description = cerror;
+
+                return result;
+            }
+        /*---------------------------------------------------*/
+        } else if (strcmp(custom_check_language, cs) == 0) { //cs
+
+            sprintf(custom_checker_path, "%s/Program.cs", custom_checker_folder);
+
+            custom_check_file = fopen(custom_checker_path, "w");
+            if (custom_check_file == NULL) { // ERROR : custom_check_file is not created
+
+                printf("ERROR : custom_check_file is not created\n");
+                return result;
+
+            }
+            fprintf(custom_check_file, "%s", custom_check_code);
+            fclose(custom_check_file);
+
+            //compilation
+
+            char *compile_command = (char*)malloc(MP_len * 2);
+
+            sprintf(compile_command, "mcs %s 2>&1", custom_checker_path);
+
+            FILE *ferr = popen(compile_command, "r");
+
+            char cerror_buffer[MP_len];
+            char cerror[MP_len * 10];
+
+            while (fgets(cerror_buffer, sizeof(cerror_buffer), ferr) != NULL) {
+
+                strcat(cerror, cerror_buffer);
+                strcat(cerror, "\n");
+
+            }
+
+            strcat(cerror, "\0");
+
+            if (WEXITSTATUS(pclose(ferr)) != 0) { //ERROR : failed to compile cs
+
+                printf("ERROR : failed to compile cs\n"); 
+
+                result->status = custom_check_error_status;
+                result->custom_check_description = cerror;
+
+                return result;
+            }
+        /*---------------------------------------------------*/
+        } else { // error: Unknown language
+
+            printf("ERROR : Unknown language\n");
+            return result;
+
+        }
 
     }
 
@@ -258,10 +467,9 @@ struct TestResult
                    3 - Memory limit
                    4 - Runtime error
                    5 - Compilation error
-                   6 - Server error */      
+                   7 - Server error */      
     int time; //ms
     int cpu_time;
-    int virtual_memory;
     int physical_memory;
     char *description;
 };
@@ -277,10 +485,9 @@ int execute(
 
     //define for error:
 
-    result->status = 6;
+    result->status = internal_server_error_status;
     result->time = 0;
     result->cpu_time = 0;
-    result->virtual_memory = 0;
     result->physical_memory = 0;
 
     char *testpath_input = (char*)malloc(MP_len); //..._input.txt
@@ -393,7 +600,7 @@ int execute(
 
         int wexitstatus = WEXITSTATUS(status);
 
-        if (wexitstatus == 0 || wexitstatus == 2 ||  wexitstatus == 4 || wexitstatus == 3) {
+        if (wexitstatus == 0 || wexitstatus == time_limit_status ||  wexitstatus == runtime_error_status || wexitstatus == memory_limit_status) {
 
             int time, cpu_time, physical_memory;
             //int virtual_memory;
@@ -453,7 +660,6 @@ int execute(
             result->status = wexitstatus;
             result->time = time;
             result->cpu_time = cpu_time;
-            result->virtual_memory = 0;
             result->physical_memory = physical_memory;
             result->description = "";
 
@@ -461,10 +667,9 @@ int execute(
         
         } else {
 
-            result->status = 6;
+            result->status = internal_server_error_status;
             result->time = 0;
             result->cpu_time = 0;
-            result->virtual_memory = 0;
             result->physical_memory = 0;
             return 1; //error
 
@@ -473,26 +678,35 @@ int execute(
     } else {
 
         printf("ERROR : Failed to create the first child process (run)\n");
-        result->status = 6;
+        result->status = internal_server_error_status;
         result->time = 0;
         result->cpu_time = 0;
-        result->virtual_memory = 0;
         result->physical_memory = 0;
         return 1; //error
         
     }
 }
 
-struct TestResult *check_test_case(int submission_id, int test_case_id, char *language, char *input, char *solution, int real_time_limit, int physical_memory_limit, int submission) { // if submission = 1 S_id else D_id
-
+struct TestResult *check_test_case(
+        int submission_id, 
+        int test_case_id, 
+        char *language, 
+        char *input, 
+        char *solution, 
+        int real_time_limit, 
+        int physical_memory_limit, 
+        int submission,
+        int custom_check, 
+        char *custom_check_language ) { 
+    // if submission = 1 S_id else D_id
+    // if custom_check є {0; 1} (0 - false, 1 - true) 
     size_t max_output_size = 10 * MiB * sizeof(char);
 
     struct TestResult *result = malloc(sizeof(struct TestResult));
 
-    result->status = 6; // define for error
+    result->status = internal_server_error_status; // define for error
     result->time = 0; 
     result->cpu_time = 0;
-    result->virtual_memory = 0;
     result->physical_memory = 0;
     result->description = "";
 
@@ -657,94 +871,172 @@ struct TestResult *check_test_case(int submission_id, int test_case_id, char *la
     if (result->physical_memory > physical_memory_limit * 1024) { //if RSS usage > RSS limit (Postfactum) (comparison KiB and MiB) -> (KiB and KiB * 1024)
 
         result->physical_memory = physical_memory_limit * 1024;
-        result->status = 3;
+        result->status = memory_limit_status;
 
     }
-    if (result->status == 3) {
+    if (result->status == memory_limit_status) {
 
         return result; //memory limit
 
     }
 
-    if (result->status == 4) {
+    if (result->status == runtime_error_status) {
 
         return result; //runtime error
 
     }
 
-    if(result->status == 2) {
+    if(result->status == time_limit_status) {
 
         return result; //Time limit
 
     }
 
+    //start default checker
+    
     file_output = fopen(testpath_output, "r");
     file_solution = fopen(testpath_solution, "r");
 
-    char* output_buffer = (char*)malloc(max_output_size);
-    char* solution_buffer = (char*)malloc(max_output_size);
+    if (custom_check == 1) { //todo: child process and iso
 
-    char *output_read = fgets(output_buffer, max_output_size, file_output);
-    char *solution_read = fgets(solution_buffer, max_output_size, file_solution);
+        char* custom_check_command = (char*)malloc(MP_len * 2);
+
+        char* custom_checker_folder = (char*)malloc(MP_len);
+        sprintf(custom_checker_folder, "%s/custom_checker", cf_id_path);
+
+        char* custom_checker_path = (char*)malloc(MP_len);
+
+        char* custom_check_verdict_path = (char*)malloc(MP_len);
+
+        sprintf(custom_check_verdict_path, "%s/verdict.txt", custom_checker_folder);
+        FILE *custom_check_verdict_file;
+
+        
+        /*---------------------------------------------------*/
+        if (strcmp(language, python) == 0) { //python
+        
+            sprintf(custom_check_command, "cat %s <(printf '\n!==stdin-out boundary==!\n') %s | python3 %s/main.py > %s", testpath_output, testpath_solution, custom_checker_folder, custom_check_verdict_path);
     
-    int status = -1; // checking 
+        } else if (strcmp(language, js) == 0) { //js
 
-    while (output_read != NULL && solution_read != NULL) {
+            sprintf(custom_check_command, "cat %s <(printf '\n!==stdin-out boundary==!\n') %s | node %s/index.js > %s", testpath_output, testpath_solution, custom_checker_folder, custom_check_verdict_path);
 
-        for (int i = strlen(output_buffer) - 1; i >= 0; i--) {
+        /*---------------------------------------------------*/
+        } else if (strcmp(language, cpp) == 0) { //cpp
 
-            if (output_buffer[i] != '\n' && output_buffer[i] != ' ') { 
+            sprintf(custom_check_command, "cat %s <(printf '\n!==stdin-out boundary==!\n') %s | ./%s/main > %s", testpath_output, testpath_solution, custom_checker_folder, custom_check_verdict_path);
 
-                output_buffer[i + 1] = '\0';
-                break;
-                
+        /*---------------------------------------------------*/
+        } else if (strcmp(language, c) == 0) { //c
+
+            sprintf(custom_check_command, "cat %s <(printf '\n!==stdin-out boundary==!\n') %s | ./%s/main > %s", testpath_output, testpath_solution, custom_checker_folder, custom_check_verdict_path);
+
+        /*---------------------------------------------------*/
+        } else if (strcmp(language, cs) == 0) { //cs
+
+            sprintf(custom_check_command, "cat %s <(printf '\n!==stdin-out boundary==!\n') %s | mono %s/Program.exe > %s", testpath_output, testpath_solution, custom_checker_folder, custom_check_verdict_path);
+
+        /*---------------------------------------------------*/
+        } else { // error: Unknown language
+
+            printf("ERROR : Unknown language\n");
+            return result;
+
+        }       
+
+        if (system(custom_check_command) == -1) { //run
+
+            result->status = internal_server_error_status;
+            perror("run custom_check error\n");
+            return result;
+            
+        }
+
+        custom_check_verdict_file = fopen(custom_check_verdict_path, "r"); 
+        
+        char line;
+
+        while ((line = fgetc(custom_check_verdict_file)) != EOF) {
+            if (line == '1') {
+                result->status = successful_status;
+                fclose(custom_check_verdict_file);
+                return result;
+            }
+        }
+
+        result->status = wrong_answer_status;
+        return result;
+
+    } else {
+
+        file_output = fopen(testpath_output, "r");
+        file_solution = fopen(testpath_solution, "r");
+
+        char* output_buffer = (char*)malloc(max_output_size);
+        char* solution_buffer = (char*)malloc(max_output_size);
+
+        char *output_read = fgets(output_buffer, max_output_size, file_output);
+        char *solution_read = fgets(solution_buffer, max_output_size, file_solution);
+        
+        int status = -1; // checking 
+
+        while (output_read != NULL && solution_read != NULL) {
+
+            for (int i = strlen(output_buffer) - 1; i >= 0; i--) {
+
+                if (output_buffer[i] != '\n' && output_buffer[i] != ' ') { 
+
+                    output_buffer[i + 1] = '\0';
+                    break;
+                    
+                }
+
             }
 
-        }
+            for (int i = strlen(solution_buffer) - 1; i >= 0; i--) {
 
-        for (int i = strlen(solution_buffer) - 1; i >= 0; i--) {
+                if (solution_buffer[i] != '\n' && solution_buffer[i] != ' ' && solution_buffer[i] != '\r') { 
 
-            if (solution_buffer[i] != '\n' && solution_buffer[i] != ' ' && solution_buffer[i] != '\r') { 
+                    solution_buffer[i + 1] = '\0';
+                    break;
 
-                solution_buffer[i + 1] = '\0';
-                break;
+                }
 
             }
 
+            strcat(output, output_buffer);
+            strcat(output, "\n");
+
+            if (strcmp(output_buffer, solution_buffer) != 0) {
+
+                status = 1;
+                break;
+            }
+
+            output_read = fgets(output_buffer, max_output_size, file_output);
+            solution_read = fgets(solution_buffer, max_output_size, file_solution);
+
         }
 
-        strcat(output, output_buffer);
-        strcat(output, "\n");
+        
+        if (status == -1) {
 
-        if (strcmp(output_buffer, solution_buffer) != 0) {
+            if (output_read != NULL || solution_read != NULL) {
 
-            status = 1;
-            break;
-        }
+                status = wrong_answer_status;
 
-        output_read = fgets(output_buffer, max_output_size, file_output);
-        solution_read = fgets(solution_buffer, max_output_size, file_solution);
+            } else {
 
+                status = successful_status;
+
+            }    
+        }  
+
+        fclose(file_solution);      
+        fclose(file_output);
+
+        result->status = status;
     }
-
-    
-    if (status == -1) {
-
-        if (output_read != NULL || solution_read != NULL) {
-
-            status = 1;
-
-        } else {
-
-            status = 0;
-
-        }    
-    }  
-
-    fclose(file_solution);      
-    fclose(file_output);
-
-    result->status = status;
     return result;
 
 }
@@ -777,10 +1069,9 @@ struct DebugResult {
                    3 - Memory limit
                    4 - Runtime error
                    5 - Compilation error
-                   6 - server error */      
+                   7 - Server error */      
     int time;
     int cpu_time;
-    int virtual_memory;
     int physical_memory;
     char *output;
     char *description;
@@ -795,10 +1086,9 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     struct DebugResult *result = malloc(sizeof(struct DebugResult));
     struct TestResult *exec_result = malloc(sizeof(struct TestResult));
 
-    result->status = 6; // define for error
+    result->status = internal_server_error_status; // define for error
     result->time = 0; 
     result->cpu_time = 0;
-    result->virtual_memory = 0;
     result->physical_memory = 0;
     result->description = "";
 
@@ -963,10 +1253,9 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     result->output = output;
     result->time = exec_result->time;
     result->cpu_time = exec_result->cpu_time;
-    result->virtual_memory = 0;
     result->physical_memory = exec_result->physical_memory;
     
-    if(result->status == 4) { //runtime error
+    if(result->status == runtime_error_status) { //runtime error
 
         char error_buffer[1000];
         char error[10000];
@@ -995,29 +1284,29 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     if (result->physical_memory > 1024 * 1024) { //if RSS usage > RSS limit (Postfactum) (comparison KiB and MiB) -> (KiB and KiB * 1024)
 
         result->physical_memory = 1024 * 1024;
-        result->status = 3;
+        result->status = memory_limit_status;
 
     }
 
-    if (result->status == 2) {
+    if (result->status == time_limit_status) {
 
         return result; //time limit
 
     }
 
-    if (result->status == 3) {
+    if (result->status == memory_limit_status) {
 
         return result; //memory limit
 
     }
 
-    if (result->status == 4) {
+    if (result->status == runtime_error_status) {
 
         return result; //runtime error
 
     }
 
-    if(result->status == 2) {
+    if(result->status == time_limit_status) {
 
         return result; //Time limit
 
@@ -1030,17 +1319,19 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 
 int main () {
     //delete_files(12312365, 1);
-    // struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}", cpp, 1);
-    struct CreateFilesResult *cfr = create_files(12312365, "console.log(12)", js, 1);
+    struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\nusing namespace std;\nint main() {\nint t;\ncin >> t;\ncout << t;\n}", cpp, 1, 0, cpp, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}");
+    //struct CreateFilesResult *cfr = create_files(12312365, "using System; \nclass Program\n{\n static void Main() \n{\n  Console.WriteLine(\"1\");\n}}", cs, 1);
     // struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\nprintf(\"%d\", a * a);\n}", "C 17 (gcc 11.2)", 1);
-    // printf(
-    // "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
-    // cfr->status,
-    // cfr->description);
+    printf(
+    "CreateFilesResult:\nstatus: %d\ndesctiption: %s\ncheck_description: %s\n", 
+    cfr->status,
+    cfr->description,
+    cfr->custom_check_description
+    );
     // struct TestResult *result = check_test_case(12312365, 12, c, "12", "144", 1, 90, 1);
 
 
-    struct TestResult *result = check_test_case(12312365, 12, js, "12", "12", 1, 100, 1);
+    struct TestResult *result = check_test_case(12312365, 12, cpp, "12", "12", 1, 100, 1, 0, cpp);
 
     printf(
     "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
@@ -1057,7 +1348,5 @@ int main () {
     //     result->physical_memory,
     //     result->description,
     //     result->output);
-
-    
 }
 

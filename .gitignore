@@ -4,3 +4,6 @@ run.sh
 exec
 deletefiles
 createfiles
+test.py
+createfiles.c
+custom_check_run.c
