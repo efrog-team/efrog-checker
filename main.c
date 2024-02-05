@@ -957,14 +957,19 @@ struct TestResult *check_test_case(
         char line;
 
         while ((line = fgetc(custom_check_verdict_file)) != EOF) {
+
             if (line == '1') {
+
                 result->status = successful_status;
                 fclose(custom_check_verdict_file);
                 return result;
+
             }
+
         }
 
         result->status = wrong_answer_status;
+        fclose(custom_check_verdict_file);
         return result;
 
     } else {
