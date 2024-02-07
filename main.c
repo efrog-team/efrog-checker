@@ -924,33 +924,42 @@ struct TestResult *check_test_case(
 
         char* custom_check_verdict_path = (char*)malloc(MP_len);
 
+
         sprintf(custom_check_verdict_path, "%s/verdict.txt", custom_checker_folder);
         FILE *custom_check_verdict_file;
+
+        char* boundary_path = (char*)malloc(MP_len);
+        sprintf(boundary_path, "%s/boundary.txt", custom_checker_folder);
+
+        FILE *boundary_file = fopen(boundary_path, "w");
+        fprintf(boundary_file, "%s", "\n!==stdin-out boundary==!\n");
+
+        fclose(boundary_file);
 
         
         /*---------------------------------------------------*/
         if (strcmp(custom_check_language, python) == 0) { //python
         
-            sprintf(custom_check_command, "/bin/bash -c \"cat %s < <(printf '\\n!==stdin-out boundary==!\\n') %s | python3 %s/main.py > %s\"", testpath_output, testpath_solution, custom_checker_folder, custom_check_verdict_path);
+            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | python3 %s/main.py > %s\"", testpath_output, boundary_path, testpath_solution, custom_checker_folder, custom_check_verdict_path);
     
         } else if (strcmp(custom_check_language, js) == 0) { //js
 
-            sprintf(custom_check_command, "/bin/bash -c \"cat %s < <(printf '\\n!==stdin-out boundary==!\\n') %s | node %s/index.js > %s\"", testpath_output, testpath_solution, custom_checker_folder, custom_check_verdict_path);
+            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | node %s/index.js > %s\"", testpath_output, boundary_path, custom_checker_folder, custom_check_verdict_path);
 
         /*---------------------------------------------------*/
         } else if (strcmp(custom_check_language, cpp) == 0) { //cpp
 
-            sprintf(custom_check_command, "/bin/bash -c \"cat %s < <(printf '\\n!==stdin-out boundary==!\\n') %s | ./%s/main > %s\"", testpath_output, testpath_solution, custom_checker_folder, custom_check_verdict_path);
+            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | ./%s/main > %s\"", testpath_output, boundary_path, custom_checker_folder, custom_check_verdict_path);
 
         /*---------------------------------------------------*/
         } else if (strcmp(custom_check_language, c) == 0) { //c
 
-            sprintf(custom_check_command, "/bin/bash -c \"cat %s < <(printf '\\n!==stdin-out boundary==!\\n') %s | ./%s/main > %s\"", testpath_output, testpath_solution, custom_checker_folder, custom_check_verdict_path);
+            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | ./%s/main > %s\"", testpath_output, boundary_path, custom_checker_folder, custom_check_verdict_path);
 
         /*---------------------------------------------------*/
         } else if (strcmp(custom_check_language, cs) == 0) { //cs
 
-            sprintf(custom_check_command, "/bin/bash -c \"cat %s < <(printf '\\n!==stdin-out boundary==!\\n') %s | mono %s/Program.exe > %s\"", testpath_output, testpath_solution, custom_checker_folder, custom_check_verdict_path);
+            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | mono %s/Program.exe > %s\"", testpath_output, boundary_path, custom_checker_folder, custom_check_verdict_path);
 
         /*---------------------------------------------------*/
         } else { // error: Unknown language
@@ -1422,27 +1431,27 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 int main () {
     //delete_files(12312365, 1);
     //struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\nusing namespace std;\nint main() {\nint t;\ncin >> t;\ncout << t;\n}", cpp, 1, 0, cpp, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}");
-    struct CreateFilesResult *cfr = create_files(12312365, "int main() {\n}", cpp, 1, 1, python, "print(1)");
+    struct CreateFilesResult *cfr = create_files(12312365, "print(\"1 2 3 4 5\")", python, 1, 1, python, "print(1)");
     //struct CreateFilesResult *cfr = create_files(12312365, "using System; \nclass Program\n{\n static void Main() \n{\n  Console.WriteLine(\"1\");\n}}", cs, 1);
     // struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\nprintf(\"%d\", a * a);\n}", "C 17 (gcc 11.2)", 1);
-    printf(
-    "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
-    cfr->status,
-    cfr->description
-    //cfr->custom_check_description
-    );
+    // printf(
+    // "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
+    // cfr->status,
+    // cfr->description
+    // //cfr->custom_check_description
+    // );
     // struct TestResult *result = check_test_case(12312365, 12, c, "12", "144", 1, 90, 1);
 
 
-    struct TestResult *result = check_test_case(12312365, 12, cpp, "12", "12", 1, 100, 1, 1, python);
+    struct TestResult *result = check_test_case(12312365, 12, python, "12", "1 2 3 4 5", 1, 100, 1, 1, python);
 
-    printf(
-    "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
-    result->status, 
-    result->time, 
-    result->cpu_time, 
-    result->physical_memory
-    );
+    // printf(
+    // "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
+    // result->status, 
+    // result->time, 
+    // result->cpu_time, 
+    // result->physical_memory
+    // );
     // printf(
     //     "DebugResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\ndescription: %s\noutput: %s", 
     //     result->status, 
