@@ -944,22 +944,22 @@ struct TestResult *check_test_case(
     
         } else if (strcmp(custom_check_language, js) == 0) { //js
 
-            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | node %s/index.js > %s\"", testpath_output, boundary_path, custom_checker_folder, custom_check_verdict_path);
+            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | node %s/index.js > %s\"", testpath_output, boundary_path, testpath_solution, custom_checker_folder, custom_check_verdict_path);
 
         /*---------------------------------------------------*/
         } else if (strcmp(custom_check_language, cpp) == 0) { //cpp
 
-            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | ./%s/main > %s\"", testpath_output, boundary_path, custom_checker_folder, custom_check_verdict_path);
+            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | ./%s/main > %s\"", testpath_output, boundary_path, testpath_solution, custom_checker_folder, custom_check_verdict_path);
 
         /*---------------------------------------------------*/
         } else if (strcmp(custom_check_language, c) == 0) { //c
 
-            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | ./%s/main > %s\"", testpath_output, boundary_path, custom_checker_folder, custom_check_verdict_path);
+            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | ./%s/main > %s\"", testpath_output, boundary_path, testpath_solution, custom_checker_folder, custom_check_verdict_path);
 
         /*---------------------------------------------------*/
         } else if (strcmp(custom_check_language, cs) == 0) { //cs
 
-            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | mono %s/Program.exe > %s\"", testpath_output, boundary_path, custom_checker_folder, custom_check_verdict_path);
+            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | mono %s/Program.exe > %s\"", testpath_output, boundary_path, testpath_solution, custom_checker_folder, custom_check_verdict_path);
 
         /*---------------------------------------------------*/
         } else { // error: Unknown language
