@@ -963,14 +963,14 @@ struct TestResult *check_test_case(
         char* open_read_solution_command = (char*)malloc(MP_len);
         char* open_write_verdict_command = (char*)malloc(MP_len);
 
-        sprintf(open_read_solution_command, "chmod a+rw %s", testpath_solution);
-        sprintf(open_write_verdict_command, "chmod a+rw %s", custom_check_verdict_path);
+        sprintf(open_read_solution_command, "chmod a+rwx %s", testpath_solution);
+        sprintf(open_write_verdict_command, "chmod a+rwx %s", custom_check_verdict_path);
 
         char* close_read_solution_command = (char*)malloc(MP_len);
         char* close_write_verdict_command = (char*)malloc(MP_len);
 
-        sprintf(close_read_solution_command, "chmod a-rw %s", testpath_solution);
-        sprintf(close_write_verdict_command, "chmod a-rw %s", custom_check_verdict_path);  
+        sprintf(close_read_solution_command, "chmod a-rwx %s", testpath_solution);
+        sprintf(close_write_verdict_command, "chmod a-rwx %s", custom_check_verdict_path);  
 
         child_pid = fork();
 
@@ -993,6 +993,7 @@ struct TestResult *check_test_case(
             setrlimit(RLIMIT_STACK, &SLimit); //stack memory    
 
             FILE *verdict_file = fopen(custom_check_verdict_path, "w");
+            fclose(verdict_file);
 
             if (system(open_read_solution_command) == -1 || system(open_write_verdict_command) == -1) {
 
