@@ -35,6 +35,22 @@
 #define custom_check_error_status 6
 #define internal_server_error_status 7
 
+#define default_max_timelimit 10 //seconds
+#define default_max_memorylimit 1024 // MiB
+
+
+#define NOBODY 65534
+
+pid_t child_pid;
+
+void handle_timeout(int signum) {
+
+    kill(child_pid, 9);
+    waitpid(child_pid, NULL, 0);
+
+    exit(custom_check_error_status); //custom check time limit
+
+}   
 
 struct CreateFilesResult {
     int status; /*
@@ -44,7 +60,7 @@ struct CreateFilesResult {
                 7 - Server error 
                 */
     char *description;
-    char *custom_check_description;
+    //char *custom_check_description;
 };
 
 
@@ -353,7 +369,7 @@ struct CreateFilesResult *create_files(
                 printf("ERROR : failed to compile C++\n"); 
 
                 result->status = custom_check_error_status;
-                result->custom_check_description = cerror;
+                //result->custom_check_description = cerror;
 
                 return result;
             }
@@ -397,7 +413,7 @@ struct CreateFilesResult *create_files(
                 printf("ERROR : failed to compile C\n"); 
 
                 result->status = custom_check_error_status;
-                result->custom_check_description = cerror;
+                //result->custom_check_description = cerror;
 
                 return result;
             }
@@ -441,7 +457,7 @@ struct CreateFilesResult *create_files(
                 printf("ERROR : failed to compile cs\n"); 
 
                 result->status = custom_check_error_status;
-                result->custom_check_description = cerror;
+                //result->custom_check_description = cerror;
 
                 return result;
             }
@@ -600,14 +616,13 @@ int execute(
 
         int wexitstatus = WEXITSTATUS(status);
 
-        if (wexitstatus == 0 || wexitstatus == time_limit_status ||  wexitstatus == runtime_error_status || wexitstatus == memory_limit_status) {
+        if (wexitstatus == successful_status || wexitstatus == time_limit_status ||  wexitstatus == runtime_error_status || wexitstatus == memory_limit_status) {
 
             int time, cpu_time, physical_memory;
             //int virtual_memory;
 
             FILE *file_time;
             FILE *file_cpu_time;
-            //FILE *file_virtual_memory;
             FILE *file_physical_memory;
 
             file_time = fopen(testpath_time, "r");
@@ -819,6 +834,7 @@ struct TestResult *check_test_case(
             real_time_limit,
             language,
             submission);
+            
     /*---------------------------------------------------*/
     } else if (strcmp(language, c) == 0) { //c
 
@@ -945,13 +961,63 @@ struct TestResult *check_test_case(
         }       
 
 
-        if (system(custom_check_command) == -1) { //run
+        child_pid = fork();
 
-            result->status = internal_server_error_status;
-            perror("run custom_check error\n");
-            return result;
+        long int VM = GiB;
+
+        struct rlimit VMlimit = {VM, VM}; //Global virtual memory limit
+        struct rlimit SLimit; //Global stack memory limit
+
+        SLimit.rlim_cur = GiB;
+
+        int status;
+
+        if (child_pid == 0) { 
+
+            /*-------------------------------child process-------------------------------*/
+            signal(SIGALRM, handle_timeout);
+            alarm(default_max_timelimit);
+
+            setrlimit(RLIMIT_AS, &VMlimit); //Virtual memory
+            setrlimit(RLIMIT_STACK, &SLimit); //stack memory
+
+            if (setuid(NOBODY) < 0) { //failed to set user-nobody
+
+                exit(internal_server_error_status); 
+
+            }
+
+            if (system(custom_check_command) == -1) {
+
+                exit(custom_check_error_status); 
+
+            }
+
+            exit(0);
+
+        } else if (child_pid > 1) {
+
+            /*-------------------------------parent process-------------------------------*/
+
+            waitpid(child_pid, &status, 0);
+
+            int wexitstatus = WEXITSTATUS(status);
+
+            if (!WIFEXITED(status) || wexitstatus != 0) {
+
+                result->status = custom_check_error_status; //checker error
+                return result;
+
+            }
             
+        } else {
+            
+            result->status = internal_server_error_status;
+            return result;
+
         }
+
+        
 
         custom_check_verdict_file = fopen(custom_check_verdict_path, "r"); 
         
@@ -1154,10 +1220,10 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
             debug_test_id,
             args,
             exec_result,
-            10,
+            default_max_timelimit,
             language,
             submission);
-
+ 
     /*---------------------------------------------------*/
     } else if (strcmp(language, js) == 0) { //js
 
@@ -1170,7 +1236,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
             debug_test_id,
             args,
             exec_result,
-            10,
+            default_max_timelimit,
             language,
             submission);
 
@@ -1187,7 +1253,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
             debug_test_id,
             args,
             exec_result,
-            10,
+            default_max_timelimit,
             language,
             submission);
     /*---------------------------------------------------*/
@@ -1203,7 +1269,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
             debug_test_id,
             args,
             exec_result,
-            10,
+            default_max_timelimit,
             language,
             submission);
 
@@ -1220,7 +1286,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
             debug_test_id,
             args,
             exec_result,
-            10,
+            default_max_timelimit,
             language,
             submission);
 
@@ -1245,6 +1311,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     file_output = fopen(testpath_output, "r");
 
     //char output_buffer[2000000]; 
+
     char* output_buffer = (char*)malloc(max_output_size);
 
     while(fgets(output_buffer, max_output_size, file_output)) {
@@ -1287,9 +1354,9 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     }
 
 
-    if (result->physical_memory > 1024 * 1024) { //if RSS usage > RSS limit (Postfactum) (comparison KiB and MiB) -> (KiB and KiB * 1024)
+    if (result->physical_memory > default_max_memorylimit * 1024) { //if RSS usage > RSS limit (Postfactum) (comparison KiB and MiB) -> (KiB and KiB * 1024)
 
-        result->physical_memory = 1024 * 1024;
+        result->physical_memory = default_max_memorylimit * 1024;
         result->status = memory_limit_status;
 
     }
@@ -1326,14 +1393,14 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 int main () {
     //delete_files(12312365, 1);
     //struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\nusing namespace std;\nint main() {\nint t;\ncin >> t;\ncout << t;\n}", cpp, 1, 0, cpp, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}");
-    struct CreateFilesResult *cfr = create_files(12312365, "print(input())", python, 1, 1, python, "print(1, end='')");
+    struct CreateFilesResult *cfr = create_files(12312365, "print(input())", python, 1, 1, python, "print(1)");
     //struct CreateFilesResult *cfr = create_files(12312365, "using System; \nclass Program\n{\n static void Main() \n{\n  Console.WriteLine(\"1\");\n}}", cs, 1);
     // struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\nprintf(\"%d\", a * a);\n}", "C 17 (gcc 11.2)", 1);
     printf(
-    "CreateFilesResult:\nstatus: %d\ndesctiption: %s\ncheck_description: %s\n", 
+    "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
     cfr->status,
-    cfr->description,
-    cfr->custom_check_description
+    cfr->description
+    //cfr->custom_check_description
     );
     // struct TestResult *result = check_test_case(12312365, 12, c, "12", "144", 1, 90, 1);
 
@@ -1356,4 +1423,6 @@ int main () {
     //     result->description,
     //     result->output);
 }
+
+//check debug
 
