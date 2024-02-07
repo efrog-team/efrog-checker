@@ -960,6 +960,17 @@ struct TestResult *check_test_case(
 
         }       
 
+        char* open_read_solution_command = (char*)malloc(MP_len);
+        char* open_write_verdict_command = (char*)malloc(MP_len);
+
+        sprintf(open_read_solution_command, "chmod a+r %s", testpath_solution);
+        sprintf(open_write_verdict_command, "chmod a+rw %s", custom_check_verdict_path);
+
+        char* close_read_solution_command = (char*)malloc(MP_len);
+        char* close_write_verdict_command = (char*)malloc(MP_len);
+
+        sprintf(close_read_solution_command, "chmod a-rw %s", testpath_solution);
+        sprintf(close_write_verdict_command, "chmod a-rw %s", custom_check_verdict_path);  
 
         child_pid = fork();
 
@@ -979,13 +990,23 @@ struct TestResult *check_test_case(
             alarm(default_max_timelimit);
 
             setrlimit(RLIMIT_AS, &VMlimit); //Virtual memory
-            setrlimit(RLIMIT_STACK, &SLimit); //stack memory
+            setrlimit(RLIMIT_STACK, &SLimit); //stack memory    
 
+            FILE *verdict_file = fopen(custom_check_verdict_path, "w");
+
+            if (system(open_read_solution_command) == -1 || system(open_write_verdict_command) == -1) {
+
+                exit(custom_check_error_status); //checker error
+                return result;
+
+            }      
+            
             if (setuid(NOBODY) < 0) { //failed to set user-nobody
 
                 exit(internal_server_error_status); 
 
             }
+
 
             if (system(custom_check_command) == -1) {
 
@@ -1000,6 +1021,13 @@ struct TestResult *check_test_case(
             /*-------------------------------parent process-------------------------------*/
 
             waitpid(child_pid, &status, 0);
+
+            if (system(close_read_solution_command) == -1 || system(close_write_verdict_command) == -1) {
+
+                result->status = internal_server_error_status; //checker error
+                return result;
+
+            }
 
             int wexitstatus = WEXITSTATUS(status);
 
@@ -1305,7 +1333,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 
     }
 
-        result->status = exec_result->status;
+    result->status = exec_result->status;
 
 
     file_output = fopen(testpath_output, "r");
@@ -1393,7 +1421,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 int main () {
     //delete_files(12312365, 1);
     //struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\nusing namespace std;\nint main() {\nint t;\ncin >> t;\ncout << t;\n}", cpp, 1, 0, cpp, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}");
-    struct CreateFilesResult *cfr = create_files(12312365, "print(input())", python, 1, 1, python, "print(1)");
+    struct CreateFilesResult *cfr = create_files(12312365, "print(123)", python, 1, 1, python, "print(1)");
     //struct CreateFilesResult *cfr = create_files(12312365, "using System; \nclass Program\n{\n static void Main() \n{\n  Console.WriteLine(\"1\");\n}}", cs, 1);
     // struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\nprintf(\"%d\", a * a);\n}", "C 17 (gcc 11.2)", 1);
     printf(
