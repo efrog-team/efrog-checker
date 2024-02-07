@@ -963,13 +963,13 @@ struct TestResult *check_test_case(
         char* open_read_solution_command = (char*)malloc(MP_len);
         char* open_write_verdict_command = (char*)malloc(MP_len);
 
-        sprintf(open_read_solution_command, "chmod a+rwx %s", testpath_solution);
+        sprintf(open_read_solution_command, "chmod -R a+rwx %s", solution_dir);
         sprintf(open_write_verdict_command, "chmod a+rwx %s", custom_check_verdict_path);
 
         char* close_read_solution_command = (char*)malloc(MP_len);
         char* close_write_verdict_command = (char*)malloc(MP_len);
 
-        sprintf(close_read_solution_command, "chmod a-rwx %s", testpath_solution);
+        sprintf(close_read_solution_command, "chmod -R a-rwx %s", solution_dir);
         sprintf(close_write_verdict_command, "chmod a-rwx %s", custom_check_verdict_path);  
 
         child_pid = fork();
