@@ -60,7 +60,6 @@ struct CreateFilesResult {
                 7 - Server error 
                 */
     char *description;
-    //char *custom_check_description;
 };
 
 
@@ -168,8 +167,8 @@ struct CreateFilesResult *create_files(
 
         FILE *ferr = popen(compile_command, "r");
 
-        char cerror_buffer[MP_len];
-        char cerror[MP_len * 10];
+        char cerror_buffer[MP_len] = "";
+        char cerror[MP_len * 10] = "";
 
         while (fgets(cerror_buffer, sizeof(cerror_buffer), ferr) != NULL) {
 
@@ -212,8 +211,8 @@ struct CreateFilesResult *create_files(
 
         FILE *ferr = popen(compile_command, "r");
 
-        char cerror_buffer[MP_len];
-        char cerror[MP_len * 10];
+        char cerror_buffer[MP_len] = "";
+        char cerror[MP_len * 10] = "";
 
         while (fgets(cerror_buffer, sizeof(cerror_buffer), ferr) != NULL) {
 
@@ -256,8 +255,8 @@ struct CreateFilesResult *create_files(
 
         FILE *ferr = popen(compile_command, "r");
 
-        char cerror_buffer[MP_len];
-        char cerror[MP_len * 10];
+        char cerror_buffer[MP_len] = "";
+        char cerror[MP_len * 10] = "";
 
         while (fgets(cerror_buffer, sizeof(cerror_buffer), ferr) != NULL) {
 
@@ -352,8 +351,8 @@ struct CreateFilesResult *create_files(
 
             FILE *ferr = popen(compile_command, "r");
 
-            char cerror_buffer[MP_len];
-            char cerror[MP_len * 10];
+            char cerror_buffer[MP_len] = "";
+            char cerror[MP_len * 10] = "";
 
             while (fgets(cerror_buffer, sizeof(cerror_buffer), ferr) != NULL) {
 
@@ -396,8 +395,8 @@ struct CreateFilesResult *create_files(
 
             FILE *ferr = popen(compile_command, "r");
 
-            char cerror_buffer[MP_len];
-            char cerror[MP_len * 10];
+            char cerror_buffer[MP_len] = "";
+            char cerror[MP_len * 10] = "";
 
             while (fgets(cerror_buffer, sizeof(cerror_buffer), ferr) != NULL) {
 
@@ -440,8 +439,8 @@ struct CreateFilesResult *create_files(
 
             FILE *ferr = popen(compile_command, "r");
 
-            char cerror_buffer[MP_len];
-            char cerror[MP_len * 10];
+            char cerror_buffer[MP_len] = "";
+            char cerror[MP_len * 10] = "";
 
             while (fgets(cerror_buffer, sizeof(cerror_buffer), ferr) != NULL) {
 
@@ -726,6 +725,8 @@ struct TestResult *check_test_case(
     result->description = "";
 
     char* output = (char*)malloc(max_output_size);
+    output = "";
+
     char* cf_id_path = (char*)malloc(MP_len); //checker files path
 
     sprintf(cf_id_path, submission ? "checker_files/S_%d" : "checker_files/D_%d", submission_id);
@@ -1368,8 +1369,8 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     
     if(result->status == runtime_error_status) { //runtime error
 
-        char error_buffer[1000];
-        char error[10000];
+        char error_buffer[1000] = "";
+        char error[10000] = "";
 
         char testpath_error[MP_len]; //..._error.txt
         sprintf(testpath_error, "%s/%d_stderr.txt", cf_id_path, debug_test_id);
@@ -1429,21 +1430,24 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 }
 
 int main () {
-    //delete_files(12312365, 1);
-    //struct CreateFilesResult *cfr = create_files(12312365, "#include <iostream>\nusing namespace std;\nint main() {\nint t;\ncin >> t;\ncout << t;\n}", cpp, 1, 0, cpp, "#include <iostream>\n\nusing namespace std;\nint main() {\nint t;\ncin >> t;\nfor(int i = 0; i < t; i++) {\nint a;\ncin >> a;\ncout << a * a << endl;\n}\nreturn 0;\n}");
-    struct CreateFilesResult *cfr = create_files(12312365, "print(\"1 2 3 4 5\")", python, 1, 1, python, "print(1)");
-    //struct CreateFilesResult *cfr = create_files(12312365, "using System; \nclass Program\n{\n static void Main() \n{\n  Console.WriteLine(\"1\");\n}}", cs, 1);
-    // struct CreateFilesResult *cfr = create_files(12312365, "#include <stdio.h>\nint main () {\nint a;\nscanf(\"%d\", &a);\nprintf(\"%d\", a * a);\n}", "C 17 (gcc 11.2)", 1);
-    // printf(
-    // "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
-    // cfr->status,
-    // cfr->description
-    // //cfr->custom_check_description
-    // );
-    // struct TestResult *result = check_test_case(12312365, 12, c, "12", "144", 1, 90, 1);
+
+    
+    struct CreateFilesResult *cfr = create_files(1231, "print(\"1 2 3 4 5\", end='')", cpp, 0, 0, "", "");
+
+    //struct CreateFilesResult *cfr = create_files(1231, "print(int(input()) ** 2)", python, 1, 0, "", "");
+    //struct CreateFilesResult *cfr = create_files(1231, "print(\"1 2 3 4 5\")", python, 1, 1, python, "print(1)");
+
+    printf(
+    "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
+    cfr->status,
+    cfr->description
+    );
 
 
-    struct TestResult *result = check_test_case(12312365, 12, python, "12", "1 2 3 4 5", 1, 100, 1, 1, python);
+    //struct TestResult *result = check_test_case(1231, 12, cpp, "12", "144", 1, 100, 1, 0, "");
+    //struct TestResult *result = check_test_case(1231, 13, python, "143", "1 2 3 4 5", 1, 100, 1, 1, python);
+
+    //struct DebugResult *result = debug(1231, 1532, cpp, "123", 0);
 
     // printf(
     // "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
@@ -1452,6 +1456,7 @@ int main () {
     // result->cpu_time, 
     // result->physical_memory
     // );
+
     // printf(
     //     "DebugResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\ndescription: %s\noutput: %s", 
     //     result->status, 
@@ -1460,7 +1465,18 @@ int main () {
     //     result->physical_memory,
     //     result->description,
     //     result->output);
+
+    //delete_files(1231, 1);
 }
 
-//check debug
+
+
+
+
+
+
+    
+    
+
+
 
