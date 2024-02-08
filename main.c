@@ -725,7 +725,6 @@ struct TestResult *check_test_case(
     result->description = "";
 
     char* output = (char*)malloc(max_output_size);
-    output = "";
 
     char* cf_id_path = (char*)malloc(MP_len); //checker files path
 
