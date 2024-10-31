@@ -52,6 +52,7 @@ void handle_timeout(int signum) {
 
 }   
 
+
 struct CreateFilesResult {
     int status; /*
                 0 - Successful
@@ -679,7 +680,7 @@ int execute(
 
             return 0;
         
-        } else {
+        } else { 
 
             result->status = internal_server_error_status;
             result->time = 0;
@@ -1201,6 +1202,7 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
     result->cpu_time = 0;
     result->physical_memory = 0;
     result->description = "";
+    result->output = "";
 
     //char output[2000000] = "";
     char* output = (char*)malloc(max_output_size);
@@ -1430,31 +1432,30 @@ struct DebugResult *debug(int debug_submission_id, int debug_test_id, char *lang
 
 int main () {
 
-    
-    struct CreateFilesResult *cfr = create_files(1231, "print(\"1 2 3 4 5\", end='')", cpp, 0, 0, "", "");
+    //struct CreateFilesResult *cfr = create_files(1231, "print('1 2 3 4 5')", python, 1, 0, "", "");
 
-    //struct CreateFilesResult *cfr = create_files(1231, "print(int(input()) ** 2)", python, 1, 0, "", "");
-    //struct CreateFilesResult *cfr = create_files(1231, "print(\"1 2 3 4 5\")", python, 1, 1, python, "print(1)");
-
-    printf(
-    "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
-    cfr->status,
-    cfr->description
-    );
-
-
-    //struct TestResult *result = check_test_case(1231, 12, cpp, "12", "144", 1, 100, 1, 0, "");
-    //struct TestResult *result = check_test_case(1231, 13, python, "143", "1 2 3 4 5", 1, 100, 1, 1, python);
-
-    //struct DebugResult *result = debug(1231, 1532, cpp, "123", 0);
+    // //struct CreateFilesResult *cfr = create_files(1231, "print(int(input()) ** 2)", python, 1, 0, "", "");
+    struct CreateFilesResult *cfr = create_files(1231, "print(\"1 3 2 5 5\", end='')", python, 1, 1, python, "import sys \narr = sys.stdin.read().split('\\n!==stdin-out boundary==!\\n')\nprint(1 if str(sorted(arr[0].split(' '))) == str(sorted(arr[1].split(' '))) else 0)");
 
     // printf(
-    // "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
-    // result->status, 
-    // result->time, 
-    // result->cpu_time, 
-    // result->physical_memory
+    // "CreateFilesResult:\nstatus: %d\ndesctiption: %s\n", 
+    // cfr->status,
+    // cfr->description
     // );
+
+
+    // struct TestResult *result = check_test_case(1231, 12, cpp, "12", "144", 1, 100, 1, 0, "");
+    struct TestResult *result = check_test_case(1231, 13, python, "143", "1 2 3 4 5", 1, 100, 1, 1, python);
+
+    //struct DebugResult *result = debug(1231, 1532, python, "12", 0);
+
+    printf(
+    "TestCaseResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\n", 
+    result->status, 
+    result->time, 
+    result->cpu_time, 
+    result->physical_memory
+    );
 
     // printf(
     //     "DebugResult:\nstatus: %d\ntime: %dms\ncpu_time: %dms\nmemory: %dKB\ndescription: %s\noutput: %s", 
@@ -1467,15 +1468,3 @@ int main () {
 
     //delete_files(1231, 1);
 }
-
-
-
-
-
-
-
-    
-    
-
-
-

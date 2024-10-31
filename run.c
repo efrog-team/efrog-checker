@@ -163,6 +163,7 @@ int main(int argc, char **argv) {
         }*/
 
         if (setuid(NOBODY) < 0) { //failed to set user-nobody
+            printf("failed to setuid(NOBODY)");
             exit(internal_server_error_status); 
         }
 
@@ -183,19 +184,63 @@ int main(int argc, char **argv) {
 
         getrusage(RUSAGE_CHILDREN, &usage);
 
-        if (!WIFEXITED(status)) {
+        /*
 
-            create_all_files(0, 0, 0);
-            exit(internal_server_error_status); //server error
+        WIFSIGNALED(status): returns 0 if process was terminated by a signal
+        WTERMSIG(status): signal number process terminated with
 
-        }
+        ----------------------------------------------------------------------
 
-        if (WEXITSTATUS(status) != 0) { //runtime error
-            
+        WIFEXITED(status): returns 0 if process exited normally (exit() or main() -> return)
+        WEXITSTATUS(status): signal number process terminated with  
+        
+        ----------------------------------------------------------------------
+
+        The difference between WTERMSIG and WEXITSTATUS is that:
+
+        WEXITSTATUS(status) is used when you need to find out the exit code of a process that terminated in a standard way (exit or main()->return).
+
+        WTERMSIG(status) is used to determine which signal terminated the process if it was forced to terminate.
+
+        */
+
+        // int termination_signal = WTERMSIG(status);
+
+        // if ( WIFSIGNALED(status) //terminated by a signal => checking signals => runtime
+        //     && (termination_signal == SIGABRT 
+        //     || termination_signal == SIGILL
+        //     || termination_signal == SIGFPE
+        //     || termination_signal == SIGSEGV
+        //     || termination_signal == SIGBUS
+        //     || termination_signal == SIGSYS) ) {
+
+        //         create_all_files(0, 0, 0);
+        //         exit(runtime_error_status); //runtime error
+        // }
+
+        if (WIFSIGNALED(status) || WEXITSTATUS(status) != 0) {
+
+            //printf("\n WEXITSTATUS: %d \n", WEXITSTATUS(status));
             create_all_files(0, 0, 0);
             exit(runtime_error_status); //runtime error
 
         }
+
+        // //this is only possible when the process terminates with unaccounted for signals
+        // if (!WIFEXITED(status)) { //process ended not normally and not by one of signals SIGABRT, SIGILL etc 
+
+        //     create_all_files(0, 0, 0);
+        //     exit(internal_server_error_status); //server error
+
+        // }
+
+        // if (WEXITSTATUS(status) != 0) { //process ended normally (exit or main()->return) but incorrect => runtime error
+            
+        //     printf("\n%d\n", status);
+        //     create_all_files(0, 0, 0);
+        //     exit(runtime_error_status); //runtime error
+
+        // }
 
         int time = get_diff_timespec_up(start, end) - get_diff_timespec_round(start_stop, end_stop);
 
