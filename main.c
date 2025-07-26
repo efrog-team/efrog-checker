@@ -941,26 +941,26 @@ struct TestResult *check_test_case(
         /*---------------------------------------------------*/
         if (strcmp(custom_check_language, python) == 0) { //python
         
-            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | python3 %s/main.py > %s\"", testpath_output, boundary_path, testpath_solution, custom_checker_folder, custom_check_verdict_path);
+            sprintf(custom_check_command, "/bin/bash -c \"python3 %s/main.py  %s %s %s > %s\"", custom_checker_folder, testpath_input, testpath_output, testpath_solution, custom_check_verdict_path);
     
         } else if (strcmp(custom_check_language, js) == 0) { //js
 
-            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | node %s/index.js > %s\"", testpath_output, boundary_path, testpath_solution, custom_checker_folder, custom_check_verdict_path);
+            sprintf(custom_check_command, "/bin/bash -c \"node %s/index.js    %s %s %s > %s\"", custom_checker_folder, testpath_input, testpath_output, testpath_solution, custom_check_verdict_path);
 
         /*---------------------------------------------------*/
         } else if (strcmp(custom_check_language, cpp) == 0) { //cpp
 
-            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | ./%s/main > %s\"", testpath_output, boundary_path, testpath_solution, custom_checker_folder, custom_check_verdict_path);
+            sprintf(custom_check_command, "/bin/bash -c \"./%s/main           %s %s %s > %s\"", custom_checker_folder, testpath_input, testpath_output, testpath_solution, custom_check_verdict_path);
 
         /*---------------------------------------------------*/
         } else if (strcmp(custom_check_language, c) == 0) { //c
 
-            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | ./%s/main > %s\"", testpath_output, boundary_path, testpath_solution, custom_checker_folder, custom_check_verdict_path);
+            sprintf(custom_check_command, "/bin/bash -c \"./%s/main           %s %s %s > %s\"", custom_checker_folder, testpath_input, testpath_output, testpath_solution, custom_check_verdict_path);
 
         /*---------------------------------------------------*/
         } else if (strcmp(custom_check_language, cs) == 0) { //cs
 
-            sprintf(custom_check_command, "/bin/bash -c \"cat %s %s %s | mono %s/Program.exe > %s\"", testpath_output, boundary_path, testpath_solution, custom_checker_folder, custom_check_verdict_path);
+            sprintf(custom_check_command, "/bin/bash -c \"mono %s/Program.exe %s %s %s > %s\"", custom_checker_folder, testpath_input, testpath_output, testpath_solution, custom_check_verdict_path);
 
         /*---------------------------------------------------*/
         } else { // error: Unknown language
